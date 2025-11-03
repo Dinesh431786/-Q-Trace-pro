@@ -53,7 +53,7 @@ This tool is for defensive security research and education only. Do not use it t
 You are solely responsible for how you use this tool.
 
 🧑‍💻 Credits
-Built by DInesh K at Voxelta Private Limited
+Built by DInesh K 
 Core quantum simulation: Cirq, Streamlit, Gemini AI
 
 📢 Spread the Word
