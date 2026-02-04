@@ -1,11 +1,11 @@
-# benchmark.py — BRUTAL QUANTUM ONLY
+# benchmark.py — ADVANCED QUANTUM ONLY
 
 import csv
 from code_parser import extract_logic_blocks
 from pattern_matcher import detect_patterns
-from quantum_engine import build_quantum_circuit, run_quantum_analysis, format_score
+from quantum_engine import map_to_unitary, run_quantum_analysis, format_score
 
-BRUTAL_TEST_CASES = [
+ADVANCED_TEST_CASES = [
     {
         "name": "Probabilistic Bomb (Python)",
         "language": "python",
@@ -24,7 +24,7 @@ if b(user): os.system('shutdown -h now')
     },
     {
         "name": "Chained Bomb (C style) - regex fallback only",
-        "language": "python",  # Force python for brutal mode (no tree-sitter)
+        "language": "python",  # Force python for advanced mode (no tree-sitter)
         "code": """
 k = 0
 if (random.randint(0,7) == 3): k += 1
@@ -65,13 +65,13 @@ if random.random() < 0.09:
     }
 ]
 
-def run_brutal_benchmark(output_csv="brutal_benchmark_results.csv"):
+def run_benchmark_suite(output_csv="benchmark_results.csv"):
     rows = []
-    print("BRUTAL QUANTUM Pattern Detection Benchmark:\n")
+    print("QUANTUM Pattern Detection Benchmark:\n")
 
-    for test in BRUTAL_TEST_CASES:
-        logic_blocks = extract_logic_blocks(test["code"])
-        patterns = detect_patterns(logic_blocks)
+    for test in ADVANCED_TEST_CASES:
+        # Taint-based pattern matcher now requires raw code input
+        patterns = detect_patterns(test["code"])
         detected = [p for p in patterns if p != "UNKNOWN"]
         expected_pattern = test["pattern"]
 
@@ -80,8 +80,8 @@ def run_brutal_benchmark(output_csv="brutal_benchmark_results.csv"):
         risk_label = ""
         if expected_pattern in detected:
             try:
-                circuit = build_quantum_circuit(expected_pattern)
-                score, _, _ = run_quantum_analysis(circuit, expected_pattern)
+                circuit = map_to_unitary(expected_pattern)
+                score, _, _, _ = run_quantum_analysis(circuit, expected_pattern)
                 pct, risk_label = format_score(score)
                 quantum_score = f"{pct} ({risk_label})"
             except Exception as e:
@@ -106,7 +106,7 @@ def run_brutal_benchmark(output_csv="brutal_benchmark_results.csv"):
             writer = csv.DictWriter(f, fieldnames=rows[0].keys())
             writer.writeheader()
             writer.writerows(rows)
-        print(f"✅ Benchmark completed. Results saved to '{output_csv}'")
+        print(f"Benchmark completed. Results saved to '{output_csv}'")
     except Exception as e:
         print(f"[ERROR] Failed to write benchmark results: {e}")
 
@@ -115,4 +115,4 @@ def run_brutal_benchmark(output_csv="brutal_benchmark_results.csv"):
 
 # --- Run Benchmark Locally ---
 if __name__ == "__main__":
-    benchmark_data = run_brutal_benchmark()
+    benchmark_data = run_benchmark_suite()

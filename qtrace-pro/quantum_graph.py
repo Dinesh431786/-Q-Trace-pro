@@ -1,8 +1,26 @@
 import networkx as nx
+import networkx.algorithms.isomorphism as iso
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from io import BytesIO
+
+def check_graph_threats(G):
+    """
+    Checks if the Code Graph matches known malicious templates (Signature-less).
+    """
+    threats = []
+    
+    # Template 1: Logic Bomb (Central node triggers multiple leaf nodes)
+    # 0 -> 1, 0 -> 2, 0 -> 3 (Fan-out)
+    Template_LogicBomb = nx.DiGraph()
+    Template_LogicBomb.add_edges_from([(0,1), (0,2), (0,3)])
+    
+    GM = iso.DiGraphMatcher(G, Template_LogicBomb)
+    if GM.subgraph_is_isomorphic():
+        threats.append("Logic Bomb Template (Graph Isomorphism)")
+        
+    return threats
 
 def plot_quantum_risk_graph(blocks, quantum_scores, entangled_pairs=None, anomaly_scores=None, title="Quantum Logic/Risk Graph", streamlit_buf=False):
     """
@@ -17,7 +35,7 @@ def plot_quantum_risk_graph(blocks, quantum_scores, entangled_pairs=None, anomal
         label = block['condition'][:30] + ("..." if len(block['condition']) > 30 else "")
         q_score = quantum_scores[idx]
         a_score = anomaly_scores[idx] if anomaly_scores is not None else 0
-        # Brutal coloring: black = max danger, red = high, yellow = mod, green = low
+        # Risk coloring: black = max danger, red = high, yellow = mod, green = low
         color = (
             "#000" if q_score >= 0.92 else
             "#e74c3c" if q_score > 0.7 or a_score < -0.3 else
@@ -66,7 +84,7 @@ def plot_quantum_risk_graph(blocks, quantum_scores, entangled_pairs=None, anomal
     plt.title(title, fontsize=15)
     plt.axis("off")
 
-    # Add brutal legend
+    # Add risk legend
     legend_elements = [
         Patch(facecolor='#000', label='Max Danger (Quantum Kill)'),
         Patch(facecolor='#e74c3c', label='High Quantum Risk'),
@@ -104,5 +122,5 @@ if __name__ == "__main__":
         quantum_scores,
         entangled_pairs=entangled_pairs,
         anomaly_scores=anomaly_scores,
-        title="BRUTAL Quantum Risk & Entanglement Graph"
+        title="Advanced Quantum Risk & Entanglement Graph"
     )

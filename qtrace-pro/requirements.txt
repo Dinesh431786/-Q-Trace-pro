@@ -6,3 +6,4 @@ numpy
 scikit-learn
 google-generativeai
 pygments
+z3-solver

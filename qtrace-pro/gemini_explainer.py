@@ -1,4 +1,4 @@
-# qtrace-pro/gemini_explainer.py — safe & testable
+# qtrace-pro/gemini_explainer.py — Gemini API Integration
 
 import os
 import logging
@@ -50,12 +50,14 @@ def explain_result(score: float, pattern: str, code_snippet: str) -> str:
         try:
             model = genai.GenerativeModel("gemini-1.5-flash-latest")
             prompt = f"""
-You are a cybersecurity expert. Briefly (4-8 sentences) explain the risk of the following code snippet.
+You are a cybersecurity expert analyzing 'Quantum-Native' threats in Python code.
+Briefly (4-8 sentences) explain the risk of the following code snippet.
+Focus on the probabilistic/quantum nature of the logic.
 
-Pattern: {pattern}
-Score: {score:.2f}
+Pattern Detected: {pattern}
+Calculated Risk Score: {score:.2f}
 
-Code:
+Code Snippet:
 {code_snippet}
 """
             response = model.generate_content(prompt)

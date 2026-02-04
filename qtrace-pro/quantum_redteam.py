@@ -7,7 +7,7 @@ def rand_ident(prefix="v"):
     invisible_char = random.choice(['', '\u200b', '\u200c', '\u200d', '_'])
     return prefix + invisible_char + base
 
-def py_brutal_quantum_bomb():
+def py_complex_quantum_bomb():
     # Multi-function, probabilistic, chained, anti-analysis quantum bomb in Python
     a = rand_ident("seed_")
     b = rand_ident("fuse_")
@@ -49,11 +49,11 @@ def {d}(w):
 def generate_python_redteam_suite(n=3):
     suite = []
     for _ in range(n):
-        suite.append(py_brutal_quantum_bomb())
+        suite.append(py_complex_quantum_bomb())
     return suite
 
 if __name__ == "__main__":
-    print("=== PYTHON BRUTAL QUANTUM RED TEAM SUITE ===\n")
+    print("=== PYTHON QUANTUM RED TEAM SUITE ===\n")
     for s in generate_python_redteam_suite(5):
         print(s)
         print("------\n")

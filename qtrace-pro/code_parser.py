@@ -1,5 +1,7 @@
 import ast
 import logging
+import math
+from collections import Counter
 from typing import List, Dict, Any, Tuple, Set
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,12 @@ def extract_logic_blocks(code: str, language: str = "python", max_inline_depth: 
         tree = ast.parse(code)
     except SyntaxError as e:
         logger.debug("[code_parser] AST parse failed: %s", e)
-        return []
+        # Fallback for non-Python or broken code: Return one big block to allow regex scanning
+        return [{
+            "condition": "UNKNOWN_SYNTAX",
+            "body": [line.strip() for line in code.splitlines() if line.strip()],
+            "calls": []
+        }]
 
     # Map function name to ast.FunctionDef
     func_map: Dict[str, ast.FunctionDef] = {}
@@ -67,18 +74,27 @@ def extract_logic_blocks(code: str, language: str = "python", max_inline_depth: 
     _cond_cache: Dict[Tuple[str, int, Tuple[str, ...]], List[str]] = {}
     _body_cache: Dict[Tuple[str, int, Tuple[str, ...]], Tuple[List[str], List[str]]] = {}
 
-    def inline_condition(cond_node: ast.AST, inline_depth: int, seen_funcs: Set[str]) -> List[str]:
+    # Cache now stores (inlined_strings, found_calls)
+    _cond_cache: Dict[Tuple[str, int, Tuple[str, ...]], Tuple[List[str], List[str]]] = {}
+
+    def inline_condition(cond_node: ast.AST, inline_depth: int, seen_funcs: Set[str]) -> Tuple[List[str], List[str]]:
         key = (ast.dump(cond_node), inline_depth, tuple(sorted(seen_funcs)))
         if key in _cond_cache:
-            return _cond_cache[key].copy()
+            cached_res, cached_calls = _cond_cache[key]
+            return cached_res.copy(), cached_calls.copy()
 
         conds: List[str] = []
+        calls: List[str] = []
 
         if isinstance(cond_node, ast.BoolOp):
             for v in cond_node.values:
-                conds.extend(inline_condition(v, inline_depth, seen_funcs))
+                c_strs, c_calls = inline_condition(v, inline_depth, seen_funcs)
+                conds.extend(c_strs)
+                calls.extend(c_calls)
         elif isinstance(cond_node, ast.Call):
             func_name = _get_call_name(cond_node)
+            calls.append(func_name)
+            
             # Try to inline only when we have a direct function definition by simple name
             base_name = func_name.split(".")[0]
             if base_name in func_map and inline_depth < max_inline_depth and base_name not in seen_funcs:
@@ -86,16 +102,26 @@ def extract_logic_blocks(code: str, language: str = "python", max_inline_depth: 
                 seen.add(base_name)
                 for stmt in func_map[base_name].body:
                     if isinstance(stmt, ast.If):
-                        conds.extend(inline_condition(stmt.test, inline_depth + 1, set(seen)))
+                        c_strs, c_calls = inline_condition(stmt.test, inline_depth + 1, set(seen))
+                        conds.extend(c_strs)
+                        calls.extend(c_calls)
                     else:
                         conds.append(_safe_unparse(stmt))
+                        # Also scan body stmts for calls
+                        for subnode in ast.walk(stmt):
+                            if isinstance(subnode, ast.Call):
+                                calls.append(_get_call_name(subnode))
             else:
                 conds.append(_safe_unparse(cond_node))
         else:
             conds.append(_safe_unparse(cond_node))
+            # Scan for calls in other node types (e.g. comparisons)
+            for subnode in ast.walk(cond_node):
+                if isinstance(subnode, ast.Call):
+                     calls.append(_get_call_name(subnode))
 
-        _cond_cache[key] = conds.copy()
-        return conds
+        _cond_cache[key] = (conds.copy(), calls.copy())
+        return conds, calls
 
     def inline_body(stmts: List[ast.stmt], inline_depth: int, seen_funcs: Set[str]) -> Tuple[List[str], List[str]]:
         key = (ast.dump(ast.Module(body=stmts)), inline_depth, tuple(sorted(seen_funcs)))
@@ -136,19 +162,47 @@ def extract_logic_blocks(code: str, language: str = "python", max_inline_depth: 
     for node in ast.walk(tree):
         if isinstance(node, ast.If):
             try:
-                cond_lines = inline_condition(node.test, 1, set())
+                cond_lines, cond_calls = inline_condition(node.test, 1, set())
                 cond = " and ".join([c for c in cond_lines if c])
                 body_lines, body_calls = inline_body(node.body, 1, set())
+                
+                # Combine calls from condition and body
+                all_calls = sorted(set(body_calls + cond_calls))
+                
                 if cond and body_lines:
                     blocks.append({
                         "condition": cond,
                         "body": body_lines,
-                        "calls": sorted(set(body_calls))
+                        "calls": all_calls
                     })
             except Exception as e:
                 logger.debug("[code_parser] Failed to extract block: %s", e)
 
     return blocks
+
+def calculate_ast_entropy(code: str) -> float:
+    """
+    Calculates Shannon Entropy of the AST structure.
+    High entropy may indicate obfuscation or complex malicious logic.
+    H(X) = - sum(p_i * log2(p_i)) where i is node type.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return 0.0
+        
+    node_types = [type(node).__name__ for node in ast.walk(tree)]
+    total = len(node_types)
+    if total == 0:
+        return 0.0
+        
+    counts = Counter(node_types)
+    entropy = 0.0
+    for count in counts.values():
+        p = count / total
+        entropy -= p * math.log2(p)
+        
+    return entropy
 
 
 # --- DEMO (safe) ---

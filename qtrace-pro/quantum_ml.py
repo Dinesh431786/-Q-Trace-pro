@@ -1,56 +1,63 @@
+"""
+quantum_ml.py — Adversarial Quantum Threat Detection
+Uses Support Vector Machines (SVM) trained on adversarial quantum circuit features.
+"""
 import numpy as np
-from sklearn.ensemble import IsolationForest
-
-# Features you could use:
-# - Quantum risk score (from engine)
-# - State probability vector (flattened)
-# - Entanglement metric (if multi-qubit)
-# - Block length, unique call count, etc.
+from sklearn.svm import OneClassSVM
+from sklearn.preprocessing import StandardScaler
 
 def block_to_features(block, risk_score, state_probs):
-    # Example: flatten features for ML
+    """
+    Maps a code block and its quantum simulation results to a feature vector.
+    Features:
+    - Von Neumann Entropy-based Risk Score
+    - Top 8 quantum state probabilities (Amplitude signature)
+    - Logical Depth (Lines of code / Complexity)
+    - Entanglement Complexity (Unique tainted calls)
+    """
     feats = []
+    # 1. Risk Score
     feats.append(risk_score)
-    feats.extend(state_probs[:8])  # Take top-8 state probabilities (pad if needed)
-    feats.append(len(block["body"]))
-    feats.append(len(set(block["calls"])))
+    
+    # 2. Quantum State Signature (Pad/Truncate to 8)
+    probs = list(state_probs)
+    if len(probs) < 8:
+        probs += [0.0] * (8 - len(probs))
+    feats.extend(probs[:8])
+    
+    # 3. Complexity Metrics
+    # Handle both dict (legacy parser) and object (future) if needed
+    body_len = len(block.get("body", [])) if isinstance(block, dict) else 0
+    calls_len = len(block.get("calls", [])) if isinstance(block, dict) else 0
+    feats.append(body_len)
+    feats.append(calls_len)
+    
     return np.array(feats)
 
-def brutal_quantum_anomaly_fit(feature_matrix):
+def train_detection_model(feature_matrix):
     """
-    Fit a brutal quantum anomaly model.
-    Use IsolationForest for unsupervised outlier (bomb) detection.
+    Trains a One-Class SVM to detect anomalies (Quantum Bombs) 
+    that deviate from 'normal' quantum circuit patterns.
     """
-    model = IsolationForest(n_estimators=200, contamination=0.07, random_state=42)
-    model.fit(feature_matrix)
-    return model
+    # Scale features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(feature_matrix)
+    
+    # OneClassSVM
+    # nu=0.1 implies ~10% of data might be outliers (threats) in training set
+    model = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)
+    model.fit(X_scaled)
+    
+    return model, scaler
 
-def brutal_quantum_anomaly_predict(model, feature_matrix):
+def predict_threats(model, scaler, feature_matrix):
     """
-    -1 = likely quantum bomb/outlier, 1 = normal
+    -1 = Adversarial Quantum Threat (Bomb), 1 = Benign
     """
-    preds = model.predict(feature_matrix)
-    scores = model.decision_function(feature_matrix)
+    if len(feature_matrix) == 0:
+        return [], []
+        
+    X_scaled = scaler.transform(feature_matrix)
+    preds = model.predict(X_scaled)
+    scores = model.decision_function(X_scaled) # Distance to hyperplane
     return preds, scores
-
-# -------- DEMO: fit and test on synthetic data --------
-if __name__ == "__main__":
-    # Fake "blocks" from red team and normal code
-    np.random.seed(1)
-    norm_blocks = [block_to_features(
-        {"body": ["foo()"], "calls": ["foo"]}, 0.09, np.random.dirichlet([1]*8)) for _ in range(20)]
-    bombs = [block_to_features(
-        {"body": ["os.system('shutdown')"], "calls": ["os", "system"]}, 0.87, np.random.dirichlet([3]+[1]*7)) for _ in range(5)]
-    X = np.vstack(norm_blocks + bombs)
-    y_true = np.array([1]*20 + [-1]*5)
-
-    model = brutal_quantum_anomaly_fit(X)
-    preds, scores = brutal_quantum_anomaly_predict(model, X)
-
-    print("Ground truth: ", y_true)
-    print("Model preds:  ", preds)
-    print("Scores:       ", scores)
-    print("Anomalies flagged (bombs):")
-    for i, (p, score) in enumerate(zip(preds, scores)):
-        if p == -1:
-            print(f"Block {i}, Score: {score:.4f}")

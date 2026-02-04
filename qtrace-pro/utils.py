@@ -37,7 +37,7 @@ def normalize_name(name):
 
 def is_quantum_pattern(pattern):
     """
-    Check if a pattern is quantum-native (brutal mode).
+    Check if a pattern is quantum-native (advanced mode).
     """
     return pattern in [
         "PROBABILISTIC_BOMB",
