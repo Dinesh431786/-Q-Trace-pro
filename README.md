@@ -4,12 +4,16 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com)
 [![React 18](https://img.shields.io/badge/React-18.2-61DAFB.svg)](https://reactjs.org/)
+[![Voice](https://img.shields.io/badge/🎤_Voice-Enabled-purple.svg)](#voice-assistant)
 
 ## 🚀 **LIVE DEMO AVAILABLE NOW!**
 
 ### 🌐 **[Try the Live Demo Here](https://8000-im3ym1a120q52e0lmqyzv-18e660f9.sandbox.novita.ai)**
+### 🎤 **[Voice-Enabled Demo](https://3000-im3ym1a120q52e0lmqyzv-18e660f9.sandbox.novita.ai/app_with_voice.html)** - Control with voice commands!
 
 **Q-Trace Pro** is a production-ready, enterprise-grade code security analysis platform that combines multiple advanced techniques to detect sophisticated threats in Python code.
+
+**🆕 Voice Assistant Feature**: Control the entire platform using natural voice commands with lightweight AI models (<100MB total).
 
 ## 📸 Application Screenshots
 
@@ -124,6 +128,39 @@ python demo_app.py
 ```
 
 Access at: **http://localhost:8000**
+
+## 🎤 Voice Assistant
+
+### Features
+Q-Trace Pro includes a lightweight voice assistant powered by:
+- **Whisper Tiny (39MB)** - Speech-to-text recognition
+- **Piper TTS (25MB)** - Text-to-speech synthesis
+- **Total Size: <100MB** - Fully local, no cloud dependencies
+
+### Voice Commands
+```
+"Analyze my code" - Start security analysis
+"Check for vulnerabilities" - Scan current code
+"Explain this vulnerability" - Get detailed explanation
+"What's the analysis status?" - Check progress
+"Clear the code" - Reset editor
+```
+
+### Setup Voice Models
+```bash
+# Install lightweight voice models
+./setup_voice_models.sh
+
+# Or manual installation
+pip install openai-whisper soundfile gtts librosa
+python -c "import whisper; whisper.load_model('tiny')"
+```
+
+### Usage
+1. Click the microphone button in the bottom-right corner
+2. Speak your command clearly
+3. The assistant will transcribe, process, and respond
+4. Results are displayed in real-time
 
 ## 🔧 Installation
 

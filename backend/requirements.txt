@@ -75,3 +75,13 @@ flower==2.0.1
 lizard==1.17.10
 mccabe==0.7.0
 flake8==7.1.1
+
+# Voice Assistant - Lightweight Models (<100MB total)
+openai-whisper  # Whisper tiny model (39MB)
+soundfile>=0.12.1  # Audio file I/O
+gtts>=2.4.0  # Google TTS fallback (very small)
+librosa>=0.10.0  # Audio processing utilities
+
+# Note: Optional voice models (install separately):
+# pip install faster-whisper  # Faster whisper implementation
+# pip install piper-tts  # Local TTS ~25-65MB depending on voice model

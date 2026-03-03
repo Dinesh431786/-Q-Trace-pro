@@ -21,6 +21,7 @@ from api.websocket_manager import WebSocketManager
 from core.config import settings
 from services.cache_service import CacheService
 from services.monitoring import metrics_middleware, PrometheusMetrics
+from services.voice_assistant import voice_ws_handler, voice_assistant
 
 # Configure structured logging
 structlog.configure(
@@ -113,6 +114,25 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat()
     }
     return JSONResponse(content=health_status)
+
+@app.websocket("/ws/voice")
+async def voice_websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for voice interactions with lightweight models"""
+    try:
+        await voice_ws_handler.connect(websocket)
+        logger.info("Voice client connected")
+        
+        while True:
+            # Receive audio data from client
+            data = await websocket.receive_bytes()
+            await voice_ws_handler.handle_audio_stream(websocket, data)
+            
+    except WebSocketDisconnect:
+        await voice_ws_handler.disconnect(websocket)
+        logger.info("Voice client disconnected")
+    except Exception as e:
+        logger.error("Voice WebSocket error", error=str(e))
+        await voice_ws_handler.disconnect(websocket)
 
 @app.websocket("/ws/analysis/{client_id}")
 async def websocket_analysis(websocket: WebSocket, client_id: str):
