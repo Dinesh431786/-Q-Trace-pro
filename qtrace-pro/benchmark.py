@@ -91,6 +91,7 @@ def run_benchmark_suite(output_csv="benchmark_results.csv"):
             "Case": test["name"],
             "Detected": ", ".join(detected) if detected else "UNKNOWN",
             "Expected": expected_pattern,
+            "Hit": expected_pattern in detected,
             "QuantumScore": quantum_score
         }
 
@@ -100,7 +101,15 @@ def run_benchmark_suite(output_csv="benchmark_results.csv"):
         print(f"  - Quantum Risk: {row['QuantumScore']}\n")
         rows.append(row)
 
-    # Save results to CSV
+    # Accuracy summary (recall over the labelled cases).
+    if rows:
+        hits = sum(1 for r in rows if r["Hit"])
+        print(f"Detection recall: {hits}/{len(rows)} = {hits / len(rows) * 100:.1f}%")
+
+    # Save results to CSV (guard against an empty result set).
+    if not rows:
+        print("[WARN] No benchmark rows produced; skipping CSV write.")
+        return rows
     try:
         with open(output_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=rows[0].keys())
