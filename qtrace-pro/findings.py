@@ -154,6 +154,20 @@ CATALOG: Dict[str, ThreatMeta] = {
             "Avoid shelling out; use safe APIs with argument lists and never pass "
             "untrusted input to exec/eval/os.system."),
     ),
+    "OBFUSCATED_PAYLOAD": ThreatMeta(
+        rule_id="QT.OBFUSCATED_PAYLOAD",
+        title="Encoded / Obfuscated Payload",
+        cwe="CWE-506", cwe_name="Embedded Malicious Code",
+        severity="Critical", base_confidence="Medium",
+        description=(
+            "A high-entropy encoded blob (base64/hex/XOR byte array) is decoded "
+            "and/or executed at runtime — a common way to hide a malicious payload "
+            "from reviewers and signature scanners."),
+        remediation=(
+            "Decode the literal offline and inspect it; never pass decoded data to "
+            "exec/eval. Treat runtime decode-then-execute as malicious until proven "
+            "otherwise."),
+    ),
 }
 
 # Fallback for any unknown rule so reporting never KeyErrors.

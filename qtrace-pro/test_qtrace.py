@@ -67,6 +67,32 @@ def test_sink_line_numbers_present():
     assert sinks and sinks[0].line == 2
 
 
+# --- obfuscation channel (entropy + fractal dimension) --------------------- #
+def test_exec_base64_flagged_as_obfuscated():
+    res = analyze("import base64\nexec(base64.b64decode('aW1wb3J0IG9z').decode())")
+    assert any(f.pattern == "OBFUSCATED_PAYLOAD" for f in res.findings)
+
+
+def test_xor_byte_array_flagged_as_obfuscated():
+    res = analyze("data=[104,105,106,107,108,109,110,111]\n"
+                  "exec(bytes([b^42 for b in data]).decode())")
+    assert any(f.pattern == "OBFUSCATED_PAYLOAD" for f in res.findings)
+
+
+def test_benign_string_formatting_not_obfuscated():
+    res = analyze("def banner(n):\n    return chr(61)*n + ' hello world '")
+    assert not any(f.pattern == "OBFUSCATED_PAYLOAD" for f in res.findings)
+
+
+def test_higuchi_fd_in_expected_range():
+    from obfuscation import higuchi_fractal_dimension
+    import numpy as np
+    # a rough random signal should have FD strictly above a smooth ramp
+    rough = higuchi_fractal_dimension(np.random.default_rng(0).random(200))
+    smooth = higuchi_fractal_dimension(np.linspace(0, 1, 200))
+    assert rough > smooth
+
+
 # --- symbolic soundness ---------------------------------------------------- #
 def test_dead_branch_is_safe():
     _, unsafe = run_symbolic_verification("if 1 == 0:\n    os.system('x')")

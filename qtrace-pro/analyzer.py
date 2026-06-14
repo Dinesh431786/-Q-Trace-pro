@@ -65,6 +65,12 @@ except Exception:  # pragma: no cover
     def extract_logic_blocks(_code):  # type: ignore
         return []
 
+try:
+    from obfuscation import analyze_obfuscation
+    _OBF_OK = True
+except Exception:  # pragma: no cover
+    _OBF_OK = False
+
 
 # Per-pattern circuit arguments (kept stable with the original UI).
 PATTERN_ARGS: Dict[str, dict] = {
@@ -232,6 +238,13 @@ def _safe_symbolic(code: str):
     return run_symbolic_verification(code)
 
 
+@resilient(fallback=None, engine="obfuscation")
+def _safe_obfuscation(code: str):
+    if not _OBF_OK:
+        return None
+    return analyze_obfuscation(code)
+
+
 @resilient(fallback=lambda: (0.0, {}), engine="quantum")
 def _safe_quantum(pattern: str):
     if not _QUANTUM_OK:
@@ -322,11 +335,15 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
     health.register("ast_parser",
                     EngineState.HEALTHY if _PARSER_OK else EngineState.UNAVAILABLE)
 
+    health.register("obfuscation",
+                    EngineState.HEALTHY if _OBF_OK else EngineState.UNAVAILABLE)
+
     patterns = _safe_detect_patterns(code) or []
     sinks = scan_sinks(code) or []
     entropy = _safe_entropy(code)
     symbolic = _safe_symbolic(code) if use_symbolic else None
     symbolic_unsafe = bool(symbolic[1]) if symbolic else False
+    obf = _safe_obfuscation(code)
 
     findings: List[Finding] = []
     physics_metrics: List[dict] = []
@@ -354,6 +371,15 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
             risk_score=0.85 if s.in_guarded_branch else 0.6,
             line=s.line, column=1, snippet=_snippet_at(code, s.line),
             evidence=[f"{s.name} ({'guarded trigger' if s.in_guarded_branch else 'direct'})"],
+        ))
+
+    # Encoded/obfuscated-payload channel (entropy + fractal roughness).
+    if obf is not None and obf.fires:
+        meta = get_meta("OBFUSCATED_PAYLOAD")
+        findings.append(Finding(
+            pattern="OBFUSCATED_PAYLOAD", meta=meta, confidence=obf.confidence,
+            risk_score=float(obf.score), line=obf.line, column=1,
+            snippet=_snippet_at(code, obf.line), evidence=obf.evidence,
         ))
 
     findings = dedupe(findings)
