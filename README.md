@@ -19,9 +19,7 @@ pip install -r requirements.txt
 streamlit run main.py
 ```
 
-> The active, supported application lives in **[`qtrace-pro/`](qtrace-pro/)**.
-> The legacy `backend/` (FastAPI) and `frontend/` (React) scaffolding is kept for
-> reference only.
+> The complete application lives in **[`qtrace-pro/`](qtrace-pro/)**.
 
 ---
 
