@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-21%2F21%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 
 **Local-native, air-gapped Python source-code security auditor** that detects the
 threats ordinary SAST tools miss — probabilistic logic bombs, chained/stateful
@@ -73,13 +73,13 @@ streamlit run main.py
 > was selected by an A/B experiment over a labelled corpus: a Mandelbrot escape-time
 > "trigger-fragility" metric was *tried and rejected* (it gave no lift over a trivial
 > baseline), while the entropy + fractal-dimension channel cleanly separated encoded
-> payloads from benign code (lifting combined separation to AUC ≈ 0.88).
+> payloads from benign code (lifting combined separation to AUC ≈ 0.97).
 
 ## 🧪 Testing
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 17 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 21 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

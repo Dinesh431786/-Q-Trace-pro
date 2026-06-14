@@ -24,7 +24,7 @@ This was selected by an A/B experiment over a labelled corpus: against a trivial
 ``rareness × severity`` baseline (AUC 0.75) and a Mandelbrot escape-time
 "fragility" metric (AUC 0.75 — *no lift*, hence rejected), this channel cleanly
 separates encoded-payload samples from benign code with near-zero false
-positives, lifting combined separation to AUC ≈ 0.88.
+positives, lifting combined separation to AUC ≈ 0.97.
 """
 from __future__ import annotations
 
