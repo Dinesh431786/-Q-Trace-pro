@@ -36,6 +36,17 @@ _RANDOM_SECRET_NAME = re.compile(r"(?i)(token|secret|key|password|nonce|otp|salt
 _WEAK_HASHES = {"md5", "md4", "sha1"}
 _WEAK_CIPHERS = {"DES", "DES3", "ARC4", "RC4", "Blowfish", "XOR"}
 _HTTP_LIBS_URL_ARG = {"get", "post", "put", "delete", "patch", "head", "request", "urlopen"}
+# Receivers that indicate a real network client (for exfiltration detection).
+_NET_RECEIVERS = {"requests", "httpx", "urllib", "session", "client", "http",
+                  "conn", "connection", "sock", "socket", "s", "ws", "aiohttp", "urllib3"}
+# Methods that send data outbound.
+_NET_SEND_METHODS = {"post", "put", "patch", "request", "send", "sendall", "sendto"}
+# Markers of credential files when passed to open().
+_CRED_PATHS = (".ssh", "id_rsa", ".aws", "credentials", ".netrc", "/etc/passwd",
+               "/etc/shadow", ".env", ".npmrc", ".pypirc", ".docker/config")
+# Exec sinks that constitute install/import-time code execution.
+_EXEC_SINKS = {"os.system", "os.popen", "subprocess.run", "subprocess.call",
+               "subprocess.Popen", "subprocess.check_output", "subprocess.check_call"}
 
 
 def _attr_chain(node: ast.AST) -> str:
@@ -88,13 +99,84 @@ class ClassicRuleVisitor(ast.NodeVisitor):
         self.code = code
         self.lines = code.splitlines()
         self.hits: List[tuple] = []  # (rule_key, line, confidence, evidence)
+        self._scope = 0  # 0 == module top level
+        self._secret_vars = set()  # vars assigned from env/credential sources
+        # Packaging context => top-level exec runs at install/import time.
+        self._packaging = ("setuptools" in code or "distutils" in code
+                           or "setup(" in code or "__init__" in code)
+
+    def _is_secret_source(self, value: ast.AST) -> bool:
+        """True if `value` reads env vars or a credential file (light taint)."""
+        for sub in ast.walk(value):
+            chain = ""
+            if isinstance(sub, ast.Attribute):
+                chain = _attr_chain(sub)
+            elif isinstance(sub, ast.Call):
+                chain = _attr_chain(sub.func)
+            if chain in {"os.environ", "os.getenv", "getenv"} or chain.endswith(".environ"):
+                return True
+            if isinstance(sub, ast.Call):
+                fn = _attr_chain(sub.func) if isinstance(sub.func, ast.Attribute) else \
+                    (sub.func.id if isinstance(sub.func, ast.Name) else "")
+                if fn == "open" and sub.args and isinstance(sub.args[0], ast.Constant) \
+                        and isinstance(sub.args[0].value, str) \
+                        and any(p in sub.args[0].value for p in _CRED_PATHS):
+                    return True
+        return False
 
     def _add(self, rule_key, node, confidence, evidence):
         self.hits.append((rule_key, getattr(node, "lineno", 1), confidence, evidence))
 
+    # --- scope tracking (for install/import-time detection) --------------
+    def visit_FunctionDef(self, node):
+        self._scope += 1
+        self.generic_visit(node)
+        self._scope -= 1
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_ClassDef(self, node):
+        self._scope += 1
+        self.generic_visit(node)
+        self._scope -= 1
+
+    # --- exfiltration helpers --------------------------------------------
+    def _is_network_send(self, node: ast.Call, short: str) -> bool:
+        if short in {"send", "sendall", "sendto", "post", "put", "patch", "request"}:
+            return True
+        if short in {"get", "urlopen"} and isinstance(node.func, ast.Attribute):
+            return _attr_chain(node.func).split(".")[0] in _NET_RECEIVERS or "urlopen" in short
+        if short == "urlopen":
+            return True
+        return False
+
+    def _carries_secret(self, node: ast.Call) -> bool:
+        for sub in ast.walk(node):
+            chain = ""
+            if isinstance(sub, ast.Attribute):
+                chain = _attr_chain(sub)
+            elif isinstance(sub, ast.Call):
+                chain = _attr_chain(sub.func)
+            if chain in {"os.environ", "os.getenv", "environ", "getenv",
+                         "os.environ.copy"} or chain.endswith(".environ"):
+                return True
+            if isinstance(sub, ast.Name) and (_SECRET_NAME.search(sub.id)
+                                              or sub.id in self._secret_vars):
+                return True
+            if isinstance(sub, ast.Call) and (_attr_chain(sub.func) in {"open"} or
+                    (isinstance(sub.func, ast.Name) and sub.func.id == "open")):
+                if sub.args and isinstance(sub.args[0], ast.Constant) \
+                        and isinstance(sub.args[0].value, str) \
+                        and any(p in sub.args[0].value for p in _CRED_PATHS):
+                    return True
+        return False
+
     # --- Assignments: secrets, insecure randomness -----------------------
     def visit_Assign(self, node: ast.Assign):
         names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+        # Light taint: remember variables that hold env vars / credential data.
+        if self._is_secret_source(node.value):
+            self._secret_vars.update(names)
         # Hard-coded credentials (CWE-798)
         if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             val = node.value.value
@@ -136,6 +218,18 @@ class ClassicRuleVisitor(ast.NodeVisitor):
         if name in {"os.system", "os.popen"} and node.args and _is_interpolated_str(node.args[0]):
             self._add("COMMAND_INJECTION", node, "High",
                       "interpolated command string passed to os.system/popen")
+
+        # Credential / data exfiltration (CWE-200): secrets -> outbound network.
+        if self._is_network_send(node, short) and self._carries_secret(node):
+            self._add("CREDENTIAL_EXFILTRATION", node, "High",
+                      "environment/secret data passed into an outbound network call")
+
+        # Install/import-time code execution (CWE-506): top-level exec in a
+        # packaging context (setup.py / __init__.py) — the supply-chain vector.
+        if self._scope == 0 and self._packaging and (
+                name in _EXEC_SINKS or short in {"exec", "eval", "__import__"}):
+            self._add("INSTALL_HOOK", node, "High",
+                      "code execution at package install/import time")
 
         # Insecure deserialization (CWE-502)
         if name in {"pickle.loads", "pickle.load", "cPickle.loads", "cPickle.load",

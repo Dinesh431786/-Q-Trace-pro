@@ -80,10 +80,12 @@ file (CWE-377), debug mode (CWE-489), cleartext transmission (CWE-319).
 | Entangled (multi-condition) bomb | CWE-511 | High |
 | Chained / stateful bomb | CWE-511 | High |
 | Cross-function embedded malicious code | CWE-506 | Critical |
+| Credential / data exfiltration (env / secret → network) | CWE-200 | Critical |
+| Install / import-time code execution (setup.py hooks) | CWE-506 | Critical |
 | Steganographic / covert channel | CWE-515 | Critical |
 | Encoded / obfuscated payload (base64/XOR → exec) | CWE-506 | Critical |
 | Anti-analysis / anti-debug | CWE-489 | Medium |
-| Dangerous execution sink (os.system/exec/eval/subprocess) | CWE-78 | High |
+| Dangerous execution sink (receiver-aware: os/subprocess/exec/eval) | CWE-78 | High |
 
 ## Command-line usage
 
@@ -96,7 +98,7 @@ python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 31 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 38 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

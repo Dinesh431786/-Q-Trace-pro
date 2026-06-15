@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-31%2F31%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-38%2F38%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
 families of risk in one pass:
@@ -32,6 +32,23 @@ streamlit run main.py
 ```
 
 > The complete application lives in **[`qtrace-pro/`](qtrace-pro/)**.
+
+## 👤 Who it's for
+
+- **Reviewing third-party / untrusted Python** — auditing a dependency, a PyPI
+  package before you adopt it, a contractor's code, or a supply-chain artifact.
+  This is where Q-Trace earns its keep: it flags **install/import-time hooks**
+  (CWE-506), **credential→network exfiltration** (CWE-200), logic bombs, and
+  obfuscated payloads — the techniques behind the 2024–2026 PyPI attacks that
+  generic linters don't look for.
+- **App-sec / CI gates on your own code** — the classic OWASP/CWE rules (SQLi,
+  command injection, deserialization, secrets, weak crypto, SSRF, TLS, …) run in
+  CI via the CLI with a severity gate, like Bandit/Semgrep.
+
+Honest scope: analysis is **per file** (with light intra-file taint for the
+exfiltration path); it is not a full interprocedural/cross-file engine like
+CodeQL, and it does not replace dependency-CVE scanners (pip-audit) or
+behavioural sandboxes. It pairs well with them.
 
 ---
 
@@ -95,10 +112,12 @@ streamlit run main.py
 | Entangled (multi-condition) bomb | CWE-511 | High |
 | Chained / stateful bomb | CWE-511 | High |
 | Cross-function embedded malicious code | CWE-506 | Critical |
+| Credential / data exfiltration (env / secret → network) | CWE-200 | Critical |
+| Install / import-time code execution (setup.py hooks) | CWE-506 | Critical |
 | Steganographic / covert channel (chr+ord / XOR) | CWE-515 | Critical |
 | Encoded / obfuscated payload (base64/XOR → exec) | CWE-506 | Critical |
 | Anti-analysis / anti-debug | CWE-489 | Medium |
-| Dangerous execution sink (os.system / exec / eval / subprocess) | CWE-78 | High |
+| Dangerous execution sink (receiver-aware: os/subprocess/exec/eval) | CWE-78 | High |
 
 Every finding carries two independent axes — **severity** (impact) and
 **confidence** (evidence strength) — per Bandit/OWASP guidance, so triage is
@@ -128,7 +147,7 @@ Exit codes: `0` = nothing at/above `--fail-on`, `2` = findings at/above the gate
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 31 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 38 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

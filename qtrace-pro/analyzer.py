@@ -88,31 +88,33 @@ PATTERN_ARGS: Dict[str, dict] = {
     "CROSS_FUNCTION_QUANTUM_BOMB": {"func_probs": [0.31, 0.47, 0.99]},
 }
 
-# Dangerous sinks -> (display name, CWE bucket). Used for both confidence
-# scoring and explicit DANGEROUS_SINK findings.
-DANGEROUS_CALLS = {
-    "system": "os.system",
-    "popen": "os.popen",
-    "exec": "exec",
-    "eval": "eval",
-    "__import__": "__import__",
-    "compile": "compile",
-    "loads": "pickle.loads",
-    "rmtree": "shutil.rmtree",
-    "remove": "os.remove",
-    "unlink": "os.unlink",
-    "spawn": "os.spawn",
-    "call": "subprocess.call",
-    "run": "subprocess.run",
-    "check_output": "subprocess.check_output",
-    "Popen": "subprocess.Popen",
-    "connect": "socket.connect",
-    "send": "socket.send",
-    "sendall": "socket.sendall",
-    "grant_root_access": "grant_root_access",
-    "unlock_root": "unlock_root",
-    "shutdown": "shutdown",
+# Dangerous sinks. To avoid false positives (e.g. Flask's ``app.run()`` or a
+# logger's ``.send()``), generic method names are only treated as sinks when the
+# *receiver* is the real dangerous module. Three buckets:
+#   BUILTIN_SINKS — matched on a bare Name call (exec(...), eval(...)).
+#   BARE_SINKS    — synthetic/demo trigger names used by the bomb test corpus.
+#   ATTR_SINKS    — attr -> (allowed receiver roots, display name).
+BUILTIN_SINKS = {"exec": "exec", "eval": "eval", "__import__": "__import__",
+                 "compile": "compile"}
+BARE_SINKS = {"grant_root_access": "grant_root_access", "unlock_root": "unlock_root",
+              "shutdown": "shutdown"}
+ATTR_SINKS = {
+    "system": ({"os"}, "os.system"),
+    "popen": ({"os"}, "os.popen"),
+    "remove": ({"os"}, "os.remove"),
+    "unlink": ({"os"}, "os.unlink"),
+    "spawn": ({"os"}, "os.spawn"),
+    "rmtree": ({"shutil"}, "shutil.rmtree"),
+    "run": ({"subprocess"}, "subprocess.run"),
+    "call": ({"subprocess"}, "subprocess.call"),
+    "check_output": ({"subprocess"}, "subprocess.check_output"),
+    "check_call": ({"subprocess"}, "subprocess.check_call"),
+    "Popen": ({"subprocess"}, "subprocess.Popen"),
+    "loads": ({"pickle", "cPickle", "marshal", "dill"}, "pickle.loads"),
 }
+# Backwards-compatible flat view (display names) for any external reference.
+DANGEROUS_CALLS = {**BUILTIN_SINKS, **BARE_SINKS,
+                   **{k: v[1] for k, v in ATTR_SINKS.items()}}
 
 
 @dataclass
@@ -163,13 +165,30 @@ class _SinkScanner(ast.NodeVisitor):
         self.hits: List[SinkHit] = []
         self._guard_depth = 0
 
-    def _call_name(self, node: ast.Call) -> str:
+    @staticmethod
+    def _receiver_root(attr: ast.Attribute) -> str:
+        """Leftmost Name id of an attribute chain (os.path.x -> 'os')."""
+        v = attr.value
+        while isinstance(v, ast.Attribute):
+            v = v.value
+        return v.id if isinstance(v, ast.Name) else ""
+
+    def _sink_name(self, node: ast.Call):
+        """Return the display name if this call is a real sink, else None."""
         f = node.func
         if isinstance(f, ast.Name):
-            return f.id
+            if f.id in BUILTIN_SINKS:
+                return BUILTIN_SINKS[f.id]
+            if f.id in BARE_SINKS:
+                return BARE_SINKS[f.id]
+            return None
         if isinstance(f, ast.Attribute):
-            return f.attr
-        return ""
+            if f.attr in BARE_SINKS:        # e.g. obj.shutdown() in the demo corpus
+                return BARE_SINKS[f.attr]
+            entry = ATTR_SINKS.get(f.attr)
+            if entry and self._receiver_root(f) in entry[0]:
+                return entry[1]
+        return None
 
     @staticmethod
     def _is_gated(test: ast.AST) -> bool:
@@ -196,10 +215,10 @@ class _SinkScanner(ast.NodeVisitor):
             self.visit(stmt)
 
     def visit_Call(self, node: ast.Call) -> None:
-        name = self._call_name(node)
-        if name in DANGEROUS_CALLS:
+        sink = self._sink_name(node)
+        if sink is not None:
             self.hits.append(SinkHit(
-                name=DANGEROUS_CALLS[name],
+                name=sink,
                 line=getattr(node, "lineno", 1),
                 in_guarded_branch=self._guard_depth > 0,
             ))
@@ -213,12 +232,18 @@ def scan_sinks(code: str) -> List[SinkHit]:
         tree = ast.parse(code)
     except SyntaxError:
         # Graceful degradation: line-based scan so we still get *something*.
+        # Match qualified forms (os.system, subprocess.run, pickle.loads, exec()/
+        # eval()) to avoid matching bare words like "run" inside ordinary text.
+        needles = ["os.system", "os.popen", "subprocess.", "pickle.loads",
+                   "marshal.loads", "shutil.rmtree", "os.remove", "exec(", "eval("]
         hits: List[SinkHit] = []
         for i, line in enumerate(code.splitlines(), start=1):
             low = line.lower()
-            for key, disp in DANGEROUS_CALLS.items():
-                if key.lower() in low and ("(" in line):
-                    hits.append(SinkHit(name=disp, line=i, in_guarded_branch="if" in low))
+            for needle in needles:
+                if needle in low:
+                    hits.append(SinkHit(name=needle.rstrip("(."), line=i,
+                                        in_guarded_branch="if" in low))
+                    break
         return hits
     scanner = _SinkScanner()
     scanner.visit(tree)

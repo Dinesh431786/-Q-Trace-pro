@@ -272,6 +272,25 @@ CATALOG: Dict[str, ThreatMeta] = {
         severity="Medium", base_confidence="Low",
         description="A request is made over plaintext http:// rather than https://.",
         remediation="Use https:// for all external requests."),
+    "CREDENTIAL_EXFILTRATION": ThreatMeta(
+        rule_id="QT.CREDENTIAL_EXFILTRATION", title="Credential / Data Exfiltration",
+        cwe="CWE-200", cwe_name="Exposure of Sensitive Information to an Unauthorized Actor",
+        severity="Critical", base_confidence="Medium",
+        description="Environment variables, secrets, or credential files are passed "
+                    "directly into an outbound network call — the dominant "
+                    "supply-chain credential-theft pattern (e.g. requests.post(url, "
+                    "data=os.environ)).",
+        remediation="Never transmit raw environment/credentials off-host. Audit the "
+                    "destination and the data; remove the exfiltration path."),
+    "INSTALL_HOOK": ThreatMeta(
+        rule_id="QT.INSTALL_HOOK", title="Install-Time / Import-Time Code Execution",
+        cwe="CWE-506", cwe_name="Embedded Malicious Code",
+        severity="Critical", base_confidence="Medium",
+        description="Code that executes shell commands / arbitrary code runs at "
+                    "package install or import time (module top level in a packaging "
+                    "context) — the primary PyPI supply-chain poisoning vector.",
+        remediation="Packages should not run commands at install/import time. Review "
+                    "exactly what this code does before trusting the package."),
 }
 
 # Fallback for any unknown rule so reporting never KeyErrors.
