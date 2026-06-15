@@ -93,6 +93,77 @@ def test_higuchi_fd_in_expected_range():
     assert rough > smooth
 
 
+# --- classic industry vulnerability rules ---------------------------------- #
+def test_sql_injection_detected():
+    from classic_rules import scan_classic
+    fs = scan_classic("cur.execute(f'SELECT * FROM u WHERE n={name}')")
+    assert any(f.pattern == "SQL_INJECTION" for f in fs)
+
+
+def test_sql_parameterized_is_safe():
+    from classic_rules import scan_classic
+    fs = scan_classic("cur.execute('SELECT * FROM u WHERE n=?', (name,))")
+    assert not any(f.pattern == "SQL_INJECTION" for f in fs)
+
+
+def test_insecure_deserialization_detected():
+    from classic_rules import scan_classic
+    assert any(f.pattern == "INSECURE_DESERIALIZATION"
+               for f in scan_classic("import pickle\npickle.loads(b)"))
+
+
+def test_disabled_cert_validation_detected():
+    from classic_rules import scan_classic
+    assert any(f.pattern == "DISABLED_CERT_VALIDATION"
+               for f in scan_classic("import requests\nrequests.get(u, verify=False)"))
+
+
+def test_hardcoded_secret_detected_but_env_is_safe():
+    from classic_rules import scan_classic
+    assert any(f.pattern == "HARDCODED_SECRET"
+               for f in scan_classic("password = 'sup3rs3cretvalue'"))
+    assert not any(f.pattern == "HARDCODED_SECRET"
+                   for f in scan_classic("import os\npassword = os.environ['PW']"))
+
+
+def test_classic_rules_flow_through_analyzer():
+    res = analyze("import pickle\npickle.loads(blob)")
+    assert any(f.pattern == "INSECURE_DESERIALIZATION" for f in res.findings)
+
+
+# --- stego false-positive fix ---------------------------------------------- #
+def test_bare_encode_is_not_steganography():
+    from pattern_matcher import detect_patterns
+    assert "QUANTUM_STEGANOGRAPHY" not in detect_patterns("h = name.encode('utf-8')")
+
+
+def test_chr_ord_xor_is_steganography():
+    from pattern_matcher import detect_patterns
+    assert "QUANTUM_STEGANOGRAPHY" in detect_patterns("x = chr(ord(c) ^ 0x2A)")
+
+
+# --- CLI ------------------------------------------------------------------- #
+def test_cli_scan_returns_gate_exit_code(tmp_path=None):
+    import os, tempfile
+    from cli import main
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "v.py")
+    with open(p, "w") as fh:
+        fh.write("import pickle\npickle.loads(b)\n")
+    # pickle.loads is High -> default --fail-on High -> exit 2
+    assert main(["scan", p, "--format", "json"]) == 2
+
+
+def test_cli_clean_file_exits_zero():
+    import os, tempfile
+    from cli import main
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "ok.py")
+    with open(p, "w") as fh:
+        fh.write("def add(a, b):\n    return a + b\n")
+    assert main(["scan", p, "--format", "json"]) == 0
+
+
 # --- symbolic soundness ---------------------------------------------------- #
 def test_dead_branch_is_safe():
     _, unsafe = run_symbolic_verification("if 1 == 0:\n    os.system('x')")

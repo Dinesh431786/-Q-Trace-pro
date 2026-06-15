@@ -121,6 +121,7 @@ def _build_cwe_taxonomy() -> dict:
 
 def _result_for(finding: Finding, artifact_uri: str) -> dict:
     meta = finding.meta
+    uri = finding.artifact_uri or artifact_uri
     return {
         "ruleId": meta.rule_id,
         "level": SEVERITY_TO_SARIF.get(meta.severity, "warning"),
@@ -130,7 +131,7 @@ def _result_for(finding: Finding, artifact_uri: str) -> dict:
         },
         "locations": [{
             "physicalLocation": {
-                "artifactLocation": {"uri": artifact_uri},
+                "artifactLocation": {"uri": uri},
                 "region": {
                     "startLine": max(1, int(finding.line)),
                     "startColumn": max(1, int(finding.column)),

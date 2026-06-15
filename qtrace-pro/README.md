@@ -50,6 +50,9 @@ streamlit run main.py
 ```
 
 ### Module map
+- **`cli.py`** — command-line scanner (file/dir → text/JSON/SARIF, CI exit codes).
+- **`classic_rules.py`** — classic OWASP/CWE SAST rules (SQLi, command injection, etc.).
+- **`obfuscation.py`** — encoded-payload detector (entropy + Higuchi fractal dimension).
 - **`qsim.py`** — lightweight pure-NumPy quantum simulator (RY/H/X/CNOT + sampling).
 - **`quantum_engine.py`** — pattern->circuit mapping, Von Neumann entropy, physics metrics, risk scoring.
 - **`pattern_matcher.py`** — taint-based AST pattern detection.
@@ -63,6 +66,14 @@ streamlit run main.py
 
 ## Detection coverage (CWE-mapped)
 
+**Classic (OWASP/CWE):** SQL injection (CWE-89), command injection (CWE-78),
+insecure deserialization (CWE-502), hard-coded credentials (CWE-798), disabled
+TLS validation (CWE-295), SSRF (CWE-918), path traversal (CWE-22), weak hash /
+cipher (CWE-327), insecure randomness (CWE-330), XXE (CWE-611), insecure temp
+file (CWE-377), debug mode (CWE-489), cleartext transmission (CWE-319).
+
+**Advanced / stealth:**
+
 | Pattern | CWE | Severity |
 |---|---|---|
 | Probabilistic logic bomb | CWE-511 | High |
@@ -70,13 +81,22 @@ streamlit run main.py
 | Chained / stateful bomb | CWE-511 | High |
 | Cross-function embedded malicious code | CWE-506 | Critical |
 | Steganographic / covert channel | CWE-515 | Critical |
+| Encoded / obfuscated payload (base64/XOR → exec) | CWE-506 | Critical |
 | Anti-analysis / anti-debug | CWE-489 | Medium |
 | Dangerous execution sink (os.system/exec/eval/subprocess) | CWE-78 | High |
+
+## Command-line usage
+
+```bash
+python cli.py scan app.py                              # text output
+python cli.py scan src/ --format sarif -o out.sarif    # SARIF 2.1.0
+python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on hit)
+```
 
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed)
+python test_qtrace.py     # standalone runner (no pytest needed) — 31 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

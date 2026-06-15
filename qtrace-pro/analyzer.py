@@ -71,6 +71,12 @@ try:
 except Exception:  # pragma: no cover
     _OBF_OK = False
 
+try:
+    from classic_rules import scan_classic
+    _CLASSIC_OK = True
+except Exception:  # pragma: no cover
+    _CLASSIC_OK = False
+
 
 # Per-pattern circuit arguments (kept stable with the original UI).
 PATTERN_ARGS: Dict[str, dict] = {
@@ -245,6 +251,13 @@ def _safe_obfuscation(code: str):
     return analyze_obfuscation(code)
 
 
+@resilient(fallback=list, engine="classic_rules")
+def _safe_classic(code: str):
+    if not _CLASSIC_OK:
+        return []
+    return scan_classic(code)
+
+
 @resilient(fallback=lambda: (0.0, {}), engine="quantum")
 def _safe_quantum(pattern: str):
     if not _QUANTUM_OK:
@@ -337,6 +350,8 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
 
     health.register("obfuscation",
                     EngineState.HEALTHY if _OBF_OK else EngineState.UNAVAILABLE)
+    health.register("classic_rules",
+                    EngineState.HEALTHY if _CLASSIC_OK else EngineState.UNAVAILABLE)
 
     patterns = _safe_detect_patterns(code) or []
     sinks = scan_sinks(code) or []
@@ -372,6 +387,9 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
             line=s.line, column=1, snippet=_snippet_at(code, s.line),
             evidence=[f"{s.name} ({'guarded trigger' if s.in_guarded_branch else 'direct'})"],
         ))
+
+    # Classic OWASP/CWE vulnerability rules (SQLi, command injection, etc.).
+    findings.extend(_safe_classic(code) or [])
 
     # Encoded/obfuscated-payload channel (entropy + fractal roughness).
     if obf is not None and obf.fires:

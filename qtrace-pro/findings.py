@@ -168,6 +168,110 @@ CATALOG: Dict[str, ThreatMeta] = {
             "exec/eval. Treat runtime decode-then-execute as malicious until proven "
             "otherwise."),
     ),
+
+    # ---------------- Classic OWASP/CWE vulnerability rules ----------------
+    "SQL_INJECTION": ThreatMeta(
+        rule_id="QT.SQL_INJECTION", title="SQL Injection",
+        cwe="CWE-89", cwe_name="SQL Injection",
+        severity="High", base_confidence="Medium",
+        description="User-controlled data is concatenated/interpolated into a SQL "
+                    "statement passed to execute(), allowing query manipulation.",
+        remediation="Use parameterised queries / bound parameters "
+                    "(cursor.execute(sql, params)); never f-string SQL."),
+    "COMMAND_INJECTION": ThreatMeta(
+        rule_id="QT.COMMAND_INJECTION", title="OS Command Injection",
+        cwe="CWE-78", cwe_name="OS Command Injection",
+        severity="High", base_confidence="Medium",
+        description="A shell command is built from dynamic input or run with "
+                    "shell=True, allowing arbitrary command execution.",
+        remediation="Pass an argument list with shell=False; validate/allow-list "
+                    "any external input."),
+    "INSECURE_DESERIALIZATION": ThreatMeta(
+        rule_id="QT.INSECURE_DESERIALIZATION", title="Insecure Deserialization",
+        cwe="CWE-502", cwe_name="Deserialization of Untrusted Data",
+        severity="High", base_confidence="High",
+        description="Untrusted data is deserialized via pickle/marshal/yaml.load, "
+                    "which can execute arbitrary code.",
+        remediation="Use safe formats (JSON) or yaml.safe_load; never unpickle "
+                    "untrusted data."),
+    "HARDCODED_SECRET": ThreatMeta(
+        rule_id="QT.HARDCODED_SECRET", title="Hard-coded Credentials",
+        cwe="CWE-798", cwe_name="Use of Hard-coded Credentials",
+        severity="High", base_confidence="Medium",
+        description="A password/API key/token is embedded as a string literal in "
+                    "source, exposing it to anyone with code access.",
+        remediation="Load secrets from environment variables or a secrets manager; "
+                    "rotate any exposed credential."),
+    "WEAK_HASH": ThreatMeta(
+        rule_id="QT.WEAK_HASH", title="Weak Hash Algorithm",
+        cwe="CWE-327", cwe_name="Use of a Broken or Risky Cryptographic Algorithm",
+        severity="Medium", base_confidence="Medium",
+        description="A broken hash (MD5/SHA1/MD4) is used in a security context.",
+        remediation="Use SHA-256+ (hashlib.sha256) or a password KDF "
+                    "(bcrypt/scrypt/argon2) for credentials."),
+    "WEAK_CIPHER": ThreatMeta(
+        rule_id="QT.WEAK_CIPHER", title="Weak Cipher",
+        cwe="CWE-327", cwe_name="Use of a Broken or Risky Cryptographic Algorithm",
+        severity="Medium", base_confidence="Medium",
+        description="A weak/broken cipher (DES/RC4/Blowfish/ECB) is referenced.",
+        remediation="Use AES-GCM or ChaCha20-Poly1305 via a vetted library."),
+    "INSECURE_RANDOM": ThreatMeta(
+        rule_id="QT.INSECURE_RANDOM", title="Insufficiently Random Values",
+        cwe="CWE-330", cwe_name="Use of Insufficiently Random Values",
+        severity="Medium", base_confidence="Medium",
+        description="The non-cryptographic `random` module is used to generate a "
+                    "token/secret/key; its output is predictable.",
+        remediation="Use the `secrets` module (secrets.token_hex / token_urlsafe)."),
+    "SSRF": ThreatMeta(
+        rule_id="QT.SSRF", title="Server-Side Request Forgery",
+        cwe="CWE-918", cwe_name="Server-Side Request Forgery (SSRF)",
+        severity="High", base_confidence="Low",
+        description="An outbound HTTP request targets a non-constant URL, which may "
+                    "be attacker-controlled and reach internal services.",
+        remediation="Validate/allow-list destination hosts; block internal IP ranges."),
+    "PATH_TRAVERSAL": ThreatMeta(
+        rule_id="QT.PATH_TRAVERSAL", title="Path Traversal",
+        cwe="CWE-22", cwe_name="Improper Limitation of a Pathname to a Restricted Directory",
+        severity="High", base_confidence="Low",
+        description="A filesystem path is built from dynamic input, allowing access "
+                    "outside the intended directory via '..'.",
+        remediation="Normalise and confine paths (os.path.realpath + prefix check); "
+                    "reject '..'."),
+    "DISABLED_CERT_VALIDATION": ThreatMeta(
+        rule_id="QT.DISABLED_CERT_VALIDATION", title="Disabled TLS Validation",
+        cwe="CWE-295", cwe_name="Improper Certificate Validation",
+        severity="High", base_confidence="High",
+        description="TLS certificate verification is disabled (verify=False / "
+                    "unverified SSL context), enabling man-in-the-middle attacks.",
+        remediation="Never disable verification; fix the trust store / pin certs "
+                    "properly instead."),
+    "XXE": ThreatMeta(
+        rule_id="QT.XXE", title="XML External Entity (XXE)",
+        cwe="CWE-611", cwe_name="Improper Restriction of XML External Entity Reference",
+        severity="Medium", base_confidence="Low",
+        description="XML is parsed with a parser that may resolve external entities, "
+                    "enabling file disclosure or SSRF.",
+        remediation="Use defusedxml, or disable entity resolution on the parser."),
+    "INSECURE_TEMP_FILE": ThreatMeta(
+        rule_id="QT.INSECURE_TEMP_FILE", title="Insecure Temporary File",
+        cwe="CWE-377", cwe_name="Insecure Temporary File",
+        severity="Medium", base_confidence="Medium",
+        description="tempfile.mktemp() is subject to a race condition between name "
+                    "generation and file creation.",
+        remediation="Use tempfile.mkstemp() or NamedTemporaryFile()."),
+    "DEBUG_ENABLED": ThreatMeta(
+        rule_id="QT.DEBUG_ENABLED", title="Debug Mode Enabled",
+        cwe="CWE-489", cwe_name="Active Debug Code",
+        severity="Medium", base_confidence="Medium",
+        description="A web application is started with debug=True, exposing an "
+                    "interactive debugger / stack traces in production.",
+        remediation="Disable debug mode in production; gate it behind config."),
+    "CLEARTEXT_TRANSMISSION": ThreatMeta(
+        rule_id="QT.CLEARTEXT_TRANSMISSION", title="Cleartext Transmission",
+        cwe="CWE-319", cwe_name="Cleartext Transmission of Sensitive Information",
+        severity="Medium", base_confidence="Low",
+        description="A request is made over plaintext http:// rather than https://.",
+        remediation="Use https:// for all external requests."),
 }
 
 # Fallback for any unknown rule so reporting never KeyErrors.
@@ -196,6 +300,7 @@ class Finding:
     column: int = 1
     snippet: str = ""
     evidence: List[str] = field(default_factory=list)
+    artifact_uri: str = ""   # source file path (set when scanning files via the CLI)
 
     @property
     def severity(self) -> str:

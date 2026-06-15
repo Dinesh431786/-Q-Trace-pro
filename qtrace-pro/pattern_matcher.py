@@ -6,6 +6,11 @@ class TaintPatternMatcher(ast.NodeVisitor):
     def __init__(self):
         self.taint_map: Dict[str, str] = {}  # var_name -> taint_type
         self.detected_patterns: Set[str] = set()
+        # Steganography evidence flags (require genuine char-code manipulation,
+        # not a bare .encode()/.decode() which is ubiquitous benign code).
+        self._has_chr = False
+        self._has_ord = False
+        self._has_xor = False
 
     def analyze(self, code: str) -> List[str]:
         # Heuristic: Try AST parse. If fail, use C-token mode.
@@ -55,10 +60,15 @@ class TaintPatternMatcher(ast.NodeVisitor):
         elif isinstance(node.func, ast.Attribute):
             call_name = node.func.attr # rough
 
-        stego_indicators = {'chr', 'ord', 'xor', 'encode', 'decode'}
-        if call_name in stego_indicators:
-             self.detected_patterns.add("QUANTUM_STEGANOGRAPHY")
-             
+        # Record char-code stego evidence; only finalize as STEGANOGRAPHY when
+        # we see chr+ord together or an XOR transform (see _finalize_results).
+        if call_name == 'chr':
+            self._has_chr = True
+        elif call_name == 'ord':
+            self._has_ord = True
+        elif call_name == 'xor':
+            self._has_xor = True
+
         # Check for Anti-Debug
         if call_name == "sleep" or "debug" in call_name:
              self.detected_patterns.add("QUANTUM_ANTIDEBUG")
@@ -68,6 +78,12 @@ class TaintPatternMatcher(ast.NodeVisitor):
         if call_name in self.taint_map:
              self.detected_patterns.add("CROSS_FUNCTION_QUANTUM_BOMB")
 
+        self.generic_visit(node)
+
+    def visit_BinOp(self, node):
+        # XOR byte-transform is a strong steganography/obfuscation signal.
+        if isinstance(node.op, ast.BitXor):
+            self._has_xor = True
         self.generic_visit(node)
 
     def visit_If(self, node):
@@ -228,6 +244,12 @@ class TaintPatternMatcher(ast.NodeVisitor):
                      self.taint_map[var] = "CHAINED" # Start tracking as state var
 
     def _finalize_results(self):
+        # 0. Decide steganography from accumulated evidence: char-code encoding
+        #    (chr AND ord) or an XOR transform. Bare .encode()/.decode() no longer
+        #    triggers this (it caused false positives on ordinary code).
+        if (self._has_chr and self._has_ord) or self._has_xor:
+            self.detected_patterns.add("QUANTUM_STEGANOGRAPHY")
+
         # 1. Steganography is a complex chain by definition.
         # If Stego is found, it hides the lower-level "Chain" alert.
         if "QUANTUM_STEGANOGRAPHY" in self.detected_patterns:
