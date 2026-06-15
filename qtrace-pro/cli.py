@@ -130,7 +130,17 @@ def main(argv=None):
     sp.add_argument("--fail-on", choices=SEVERITY_ORDER, default="High",
                     help="exit code 2 if any finding is at/above this (default: High)")
     sp.add_argument("--no-symbolic", action="store_true", help="skip Z3 symbolic verification")
+    sp.add_argument("--ledger", metavar="PATH",
+                    help="append this scan to a tamper-evident hash-chained audit ledger")
+    vp = sub.add_parser("verify-ledger", help="verify the integrity of an audit ledger")
+    vp.add_argument("path", help="ledger file to verify")
     args = p.parse_args(argv)
+
+    if args.command == "verify-ledger":
+        from ledger import ledger_summary, verify_ledger
+        print(ledger_summary(args.path))
+        ok, _ = verify_ledger(args.path)
+        return 0 if ok else 2
 
     if args.command != "scan":
         p.print_help()
@@ -148,6 +158,18 @@ def main(argv=None):
         report = json_report_string(findings, extra={"files_scanned": files})
     else:
         report = _render_text(findings, files)
+
+    # Tamper-evident audit ledger (optional): attest this exact report.
+    if args.ledger:
+        from ledger import append_scan
+        counts = {}
+        for f in findings:
+            counts[f.severity] = counts.get(f.severity, 0) + 1
+        rec = append_scan(args.ledger, target=args.path, summary=counts,
+                          finding_count=len(findings), report_text=report)
+        print(f"ledger: appended record #{rec.index} "
+              f"(hash {rec.record_hash[:16]}…)" +
+              (" [signed]" if rec.signature else ""), file=sys.stderr)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:

@@ -205,6 +205,55 @@ def test_cross_file_local_secret_use_is_clean():
     assert analyze_package(pkg) == []
 
 
+# --- tamper-evident audit ledger ------------------------------------------- #
+def _tmp_ledger():
+    import os, tempfile
+    return os.path.join(tempfile.mkdtemp(), "audit.ledger")
+
+
+def test_ledger_chain_verifies_when_intact():
+    from ledger import append_scan, verify_ledger
+    p = _tmp_ledger()
+    append_scan(p, "a/", {"High": 1}, 1, "report-a")
+    append_scan(p, "b/", {"Critical": 2}, 2, "report-b")
+    ok, problems = verify_ledger(p)
+    assert ok and problems == []
+
+
+def test_ledger_detects_content_tampering():
+    import json
+    from ledger import append_scan, verify_ledger
+    p = _tmp_ledger()
+    append_scan(p, "a/", {"High": 1}, 1, "report-a")
+    append_scan(p, "b/", {"High": 1}, 1, "report-b")
+    lines = open(p).read().splitlines()
+    rec = json.loads(lines[0]); rec["finding_count"] = 99
+    lines[0] = json.dumps(rec, sort_keys=True)
+    open(p, "w").write("\n".join(lines) + "\n")
+    ok, problems = verify_ledger(p)
+    assert not ok and any("tamper" in s for s in problems)
+
+
+def test_ledger_detects_deletion():
+    from ledger import append_scan, verify_ledger
+    p = _tmp_ledger()
+    append_scan(p, "a/", {}, 0, "ra")
+    append_scan(p, "b/", {}, 0, "rb")
+    append_scan(p, "c/", {}, 0, "rc")
+    lines = open(p).read().splitlines()
+    open(p, "w").write(lines[0] + "\n" + lines[2] + "\n")  # drop the middle record
+    ok, problems = verify_ledger(p)
+    assert not ok
+
+
+def test_ledger_hmac_signature_requires_key():
+    from ledger import append_scan, verify_ledger
+    p = _tmp_ledger()
+    append_scan(p, "a/", {"High": 1}, 1, "ra", key="secret-key")
+    assert verify_ledger(p, key="secret-key")[0] is True
+    assert verify_ledger(p, key="wrong-key")[0] is False
+
+
 # --- false-positive fixes -------------------------------------------------- #
 def test_flask_app_run_is_not_a_sink():
     # app.run() must NOT be flagged as subprocess.run (receiver-aware matching)
