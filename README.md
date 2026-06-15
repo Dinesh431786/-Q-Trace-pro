@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-53%2F53%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-56%2F56%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
 families of risk in one pass:
@@ -17,8 +17,9 @@ families of risk in one pass:
   PyPI supply-chain attacks (aiocpa, W4SP, Hades/Shai-Hulud, LiteLLM/TeamPCP,
   telnyx).
 
-Use it from the **command line** (CI/CD, like Bandit/Semgrep) or the Streamlit UI.
-Everything runs **entirely on your hardware** — no code ever leaves the machine.
+Use it from the **command line** (CI/CD, like Bandit/Semgrep) or a lightweight
+**web UI**. Everything runs **entirely on your hardware** — no code ever leaves
+the machine.
 
 ```bash
 cd qtrace-pro
@@ -27,9 +28,12 @@ pip install -r requirements.txt
 # CLI — scan a file or directory (SARIF/JSON/text, CI-friendly exit codes)
 python cli.py scan path/to/code --min-severity Medium --fail-on High
 
-# or the interactive UI
-streamlit run main.py
+# Web UI — a dependency-free single-page app on http://127.0.0.1:8000
+python webapp.py
 ```
+
+The web UI is plain HTML/CSS/JS served by Python's standard library
+(`http.server`) — no Streamlit, no Flask/FastAPI, no Node build step.
 
 > The complete application lives in **[`qtrace-pro/`](qtrace-pro/)**.
 
@@ -73,7 +77,7 @@ behavioural sandboxes. It pairs well with them.
 ## 🏗️ Architecture
 
 ```
-  cli.py  /  main.py (Streamlit)
+  cli.py  /  webapp.py (web UI: stdlib http.server + web/index.html)
                  v
         +------------------------------+
         |        analyzer.py           |  <- unified orchestrator
@@ -159,7 +163,7 @@ break a CI build), `1` = usage/IO error.
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 53 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 56 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

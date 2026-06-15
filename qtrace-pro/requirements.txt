@@ -1,6 +1,5 @@
 # Q-Trace Pro — runtime dependencies
 # Core (required)
-streamlit>=1.30
 numpy>=1.24
 scikit-learn>=1.3
 z3-solver>=4.12
@@ -14,6 +13,8 @@ pygments>=2.16
 # Modern SDK; the legacy `google-generativeai` is auto-detected if present.
 google-genai>=0.3 ; python_version >= "3.9"
 
-# NOTE: `cirq` is intentionally NOT required. Q-Trace ships its own lightweight
-# pure-NumPy quantum-inspired simulator (qsim.py), validated against cirq, for a
-# ~10x faster import and a few-KB install footprint instead of hundreds of MB.
+# NOTE: the web UI (webapp.py) and the CLI (cli.py) use only the Python standard
+# library for serving/argument handling — no Streamlit/Flask/FastAPI, no build
+# step. `cirq` is also intentionally NOT required: Q-Trace ships its own
+# lightweight pure-NumPy quantum-inspired simulator (qsim.py), validated against
+# cirq, for a ~10x faster import and a few-KB footprint instead of hundreds of MB.

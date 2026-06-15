@@ -10,7 +10,8 @@ Everything runs **entirely on your hardware**. No code ever leaves the machine.
 
 ```bash
 pip install -r requirements.txt
-streamlit run main.py
+python webapp.py        # web UI on http://127.0.0.1:8000  (stdlib only)
+# or:  python cli.py scan path/to/code
 ```
 
 ---
@@ -46,7 +47,7 @@ streamlit run main.py
                                 v
                   report.py  ->  SARIF 2.1.0  /  JSON
                                 v
-                     main.py  (Streamlit UI + health panel)
+              webapp.py (web UI)  /  cli.py (CLI)
 ```
 
 ### Module map
@@ -64,7 +65,7 @@ streamlit run main.py
 - **`findings.py`** — threat catalog: CWE IDs, severities, confidence, remediation.
 - **`report.py`** — SARIF 2.1.0 + JSON serialization (NumPy-safe encoder).
 - **`gemini_explainer.py`** — optional AI explanations (modern `google-genai`, local fallback).
-- **`main.py`** — Streamlit front end.
+- **`webapp.py` + `web/index.html`** — lightweight web UI (stdlib `http.server`, vanilla HTML/CSS/JS).
 
 ## Detection coverage (CWE-mapped)
 
@@ -100,7 +101,7 @@ python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 53 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 56 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

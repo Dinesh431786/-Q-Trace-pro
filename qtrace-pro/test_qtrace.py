@@ -245,6 +245,27 @@ def test_depth_benign_self_public_attr_is_clean():
                                "        requests.post('https://e', data=self.name)\n"})
 
 
+# --- web UI API ------------------------------------------------------------ #
+def test_webapp_scan_response_flags_vulnerable_code():
+    from webapp import build_scan_response
+    r = build_scan_response("import pickle\npickle.loads(b)")
+    assert r["ok"] and r["summary"]["total"] >= 1
+    assert r["sarif"].strip().startswith("{") and '"version": "2.1.0"' in r["sarif"]
+    assert r["json"].strip().startswith("{")
+    assert all("cwe_uri" in f for f in r["findings"])
+
+
+def test_webapp_scan_response_clean_for_benign():
+    from webapp import build_scan_response
+    assert build_scan_response("def add(a, b):\n    return a + b")["summary"]["total"] == 0
+
+
+def test_webapp_rejects_oversized_input():
+    from webapp import build_scan_response
+    r = build_scan_response("x" * 2_000_001)
+    assert r["ok"] is False and "too large" in r["error"]
+
+
 # --- tamper-evident audit ledger ------------------------------------------- #
 def _tmp_ledger():
     import os, tempfile
