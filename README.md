@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-38%2F38%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-43%2F43%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
 families of risk in one pass:
@@ -38,16 +38,19 @@ streamlit run main.py
 - **Reviewing third-party / untrusted Python** — auditing a dependency, a PyPI
   package before you adopt it, a contractor's code, or a supply-chain artifact.
   This is where Q-Trace earns its keep: it flags **install/import-time hooks**
-  (CWE-506), **credential→network exfiltration** (CWE-200), logic bombs, and
-  obfuscated payloads — the techniques behind the 2024–2026 PyPI attacks that
-  generic linters don't look for.
+  (CWE-506), **credential→network exfiltration** (CWE-200) — including
+  **cross-file** flows where the secret is read in one module and sent from
+  another — logic bombs, and obfuscated payloads. These are the techniques
+  behind the 2024–2026 PyPI attacks that generic linters don't look for.
 - **App-sec / CI gates on your own code** — the classic OWASP/CWE rules (SQLi,
   command injection, deserialization, secrets, weak crypto, SSRF, TLS, …) run in
   CI via the CLI with a severity gate, like Bandit/Semgrep.
 
-Honest scope: analysis is **per file** (with light intra-file taint for the
-exfiltration path); it is not a full interprocedural/cross-file engine like
-CodeQL, and it does not replace dependency-CVE scanners (pip-audit) or
+Honest scope: cross-file taint is **interprocedural but deliberately narrow** —
+it tracks high-confidence secret sources (`os.environ`, credential files) through
+function returns and imports into network/exec sinks, for near-zero false
+positives. It is not a general dataflow engine like CodeQL (it doesn't model
+every propagation), and it doesn't replace dependency-CVE scanners (pip-audit) or
 behavioural sandboxes. It pairs well with them.
 
 ---
@@ -57,6 +60,7 @@ behavioural sandboxes. It pairs well with them.
 | Capability | How Q-Trace does it |
 |---|---|
 | **Complete coverage** | Classic OWASP/CWE rules (SQLi, command injection, deserialization, secrets, weak crypto, SSRF, TLS, traversal, XXE…) **plus** stealth logic-bomb / covert-payload detection — in a single scan, from CLI or UI. |
+| **Cross-file taint** | An interprocedural pass follows a secret (`os.environ`, credential files) through function returns and module imports into a network/exec sink — catching distributed backdoors where the source and sink live in different files. |
 | **Accurate — low false positives** | Sink-aware confidence scoring. A `random.random() < x` check is only high-confidence when a real execution/exfiltration **sink** sits in the guarded branch; benign sampling drops to *Low*. Two independent axes (severity × confidence), per Bandit/OWASP guidance. Every classic rule has a safe-variant test. |
 | **Lightweight & fast** | A custom **pure-NumPy quantum-inspired simulator** (`qsim.py`) replaces the heavyweight `cirq` dependency — ~10× faster import, a few KB instead of hundreds of MB, identical math (validated against cirq). Content-hash caching skips re-analysis. Typical audit: tens of milliseconds. |
 | **Provably sound** | Z3 **symbolic reachability** proves whether a sink is actually reachable. Stateful counters are modelled as accumulators of optional increments, so `if k == 99` with one `k += 1` is correctly proven *unreachable* (no false "proof"). |
@@ -147,7 +151,7 @@ Exit codes: `0` = nothing at/above `--fail-on`, `2` = findings at/above the gate
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 38 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 43 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

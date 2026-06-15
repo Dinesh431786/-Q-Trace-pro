@@ -51,6 +51,7 @@ streamlit run main.py
 
 ### Module map
 - **`cli.py`** — command-line scanner (file/dir → text/JSON/SARIF, CI exit codes).
+- **`taint.py`** — cross-file interprocedural taint (secret source → sink across modules).
 - **`classic_rules.py`** — classic OWASP/CWE SAST rules (SQLi, command injection, etc.).
 - **`obfuscation.py`** — encoded-payload detector (entropy + Higuchi fractal dimension).
 - **`qsim.py`** — lightweight pure-NumPy quantum simulator (RY/H/X/CNOT + sampling).
@@ -98,7 +99,7 @@ python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 38 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 43 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

@@ -53,17 +53,24 @@ def _iter_python_files(path):
 
 
 def _scan_path(path, use_symbolic):
-    """Analyze every .py file under path; return (all_findings, files_scanned, errors)."""
+    """Analyze every .py file under path; return (all_findings, files_scanned, errors).
+
+    Runs the per-file analysis plus a package-level cross-file taint pass so that
+    a secret read in one module and exfiltrated in another is caught.
+    """
     all_findings = []
     files = errors = 0
+    corpus = {}  # relpath -> code, for the cross-file taint pass
     for fp in _iter_python_files(path):
         files += 1
+        rel = os.path.relpath(fp)
         try:
             with open(fp, "r", encoding="utf-8", errors="replace") as fh:
                 code = fh.read()
+            corpus[rel] = code
             res = analyze(code, use_symbolic=use_symbolic, use_cache=False)
             for f in res.findings:
-                f.artifact_uri = os.path.relpath(fp)
+                f.artifact_uri = rel
             all_findings.extend(res.findings)
         except ValidationError as e:
             errors += 1
@@ -71,6 +78,14 @@ def _scan_path(path, use_symbolic):
         except Exception as e:  # never let one file abort the whole scan
             errors += 1
             print(_c("0;33", f"error {fp}: {e}"), file=sys.stderr)
+
+    # Cross-file interprocedural taint (secret source -> sink across modules).
+    try:
+        from taint import analyze_package
+        all_findings.extend(analyze_package(corpus))
+    except Exception as e:
+        print(_c("0;33", f"cross-file taint skipped: {e}"), file=sys.stderr)
+
     return all_findings, files, errors
 
 

