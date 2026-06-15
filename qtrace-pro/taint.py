@@ -44,12 +44,23 @@ CallRef = Tuple[Optional[str], str]  # (module_hint, function_name)
 
 @dataclass(frozen=True)
 class Taint:
-    """A value's taint: directly tainted, and/or tainted iff some call returns taint."""
+    """A value's taint: directly tainted, and/or tainted iff some call returns taint.
+
+    ``deep`` marks taint that reached a value through indirection — a container
+    element, an object attribute, augmented assignment, or a mutating method —
+    i.e. a flow that ``classic_rules`` does not cover, so the engine emits it
+    even when it does not cross a function boundary.
+    """
     direct: bool = False
     calls: FrozenSet[CallRef] = frozenset()
+    deep: bool = False
 
     def union(self, other: "Taint") -> "Taint":
-        return Taint(self.direct or other.direct, self.calls | other.calls)
+        return Taint(self.direct or other.direct, self.calls | other.calls,
+                     self.deep or other.deep)
+
+    def as_deep(self) -> "Taint":
+        return Taint(self.direct, self.calls, True)
 
 
 EMPTY = Taint()
@@ -73,6 +84,29 @@ def _attr_chain(node: ast.AST) -> str:
     if isinstance(node, ast.Name):
         parts.append(node.id)
     return ".".join(reversed(parts))
+
+
+def _dotted(node: ast.AST) -> Optional[str]:
+    """Dotted key for a Name/Attribute place, e.g. self.creds -> 'self.creds'."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return None
+
+
+def _base_name(node: ast.AST) -> Optional[str]:
+    """Leftmost Name id through Subscript/Attribute chains (d['k'].x -> 'd')."""
+    while isinstance(node, (ast.Subscript, ast.Attribute)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+# Container methods whose tainted argument taints the receiver.
+_MUTATORS = {"append", "extend", "add", "update", "insert", "setdefault", "__setitem__"}
 
 
 def _module_stem(path: str) -> str:
@@ -149,7 +183,10 @@ class _FileAnalyzer:
         if isinstance(node, ast.Attribute):
             if _attr_chain(node).endswith(".environ"):
                 return Taint(direct=True)
-            return self._expr_taint(node.value, tv)
+            place = _dotted(node)
+            if place and place in tv:           # precise attribute taint (self.creds)
+                return tv[place]
+            return self._expr_taint(node.value, tv)   # else fall back to receiver taint
         if isinstance(node, ast.Name):
             return tv.get(node.id, EMPTY)
         if isinstance(node, (ast.BinOp,)):
@@ -199,21 +236,79 @@ class _FileAnalyzer:
         for node in self.tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 self.summaries.append(self._analyze_func(node))
+            elif isinstance(node, ast.ClassDef):
+                self_taint = self._class_self_taint(node)
+                for m in node.body:
+                    if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        self.summaries.append(self._analyze_func(m, self_taint))
         return self.summaries
 
-    def _analyze_func(self, fn) -> Summary:
+    def _class_self_taint(self, cls: ast.ClassDef) -> Dict[str, Taint]:
+        """Find `self.<attr> = <secret>` across a class's methods (cross-method state).
+
+        Evaluated with no locals, so it captures direct sources (os.environ,
+        credential files) and taint-returning calls — not locals-derived values —
+        keeping precision high.
+        """
+        out: Dict[str, Taint] = {}
+        for m in cls.body:
+            if not isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for stmt in ast.walk(m):
+                if isinstance(stmt, ast.Assign):
+                    for tgt in stmt.targets:
+                        place = _dotted(tgt)
+                        if place and place.startswith("self."):
+                            t = self._expr_taint(stmt.value, {})
+                            if t.direct or t.calls:
+                                out[place] = out.get(place, EMPTY).union(t)
+        return out
+
+    def _analyze_func(self, fn, self_taint: Optional[Dict[str, Taint]] = None) -> Summary:
         s = Summary(module=self.module, name=fn.name, lineno=fn.lineno)
-        tv: Dict[str, Taint] = {}
+        # Cross-method self state is read indirectly -> mark it deep.
+        tv: Dict[str, Taint] = {k: v.as_deep() for k, v in self_taint.items()} if self_taint else {}
+
+        def taint_place(target: ast.AST, t: Taint, force_deep: bool):
+            """Record taint for an assignment/mutation target (var, attr, or container)."""
+            if force_deep:
+                t = t.as_deep()
+            if isinstance(target, ast.Name):
+                tv[target.id] = tv.get(target.id, EMPTY).union(t)
+            elif isinstance(target, ast.Attribute):
+                place = _dotted(target)
+                if place:
+                    tv[place] = tv.get(place, EMPTY).union(t)
+            elif isinstance(target, ast.Subscript):
+                base = _base_name(target)        # coarse: a container holding a secret is tainted
+                if base:
+                    tv[base] = tv.get(base, EMPTY).union(t)
+
         for stmt in ast.walk(fn):
             if isinstance(stmt, ast.Assign):
                 t = self._expr_taint(stmt.value, tv)
                 if t.direct or t.calls:
                     for tgt in stmt.targets:
-                        if isinstance(tgt, ast.Name):
-                            tv[tgt.id] = t
+                        # Plain `x = secret` is covered by classic_rules (not deep);
+                        # attribute/container targets are indirection (deep).
+                        taint_place(tgt, t, force_deep=not isinstance(tgt, ast.Name))
+            elif isinstance(stmt, ast.AugAssign):     # buf += secret  (indirection)
+                t = self._expr_taint(stmt.value, tv)
+                if t.direct or t.calls:
+                    taint_place(stmt.target, t, force_deep=True)
             elif isinstance(stmt, ast.Return) and stmt.value is not None:
                 s.return_taint = s.return_taint.union(self._expr_taint(stmt.value, tv))
             elif isinstance(stmt, ast.Call):
+                f = stmt.func
+                # Mutating container method: items.append(secret) taints `items`.
+                if isinstance(f, ast.Attribute) and f.attr in _MUTATORS:
+                    argt = EMPTY
+                    for a in stmt.args:
+                        argt = argt.union(self._expr_taint(a, tv))
+                    for k in stmt.keywords:
+                        argt = argt.union(self._expr_taint(k.value, tv))
+                    if argt.direct or argt.calls:
+                        taint_place(f.value, argt, force_deep=True)
                 kind = self._sink_kind(stmt)
                 if kind is not None:
                     argt = EMPTY
@@ -277,22 +372,28 @@ def analyze_package(files: Dict[str, str]) -> List[Finding]:
     findings: List[Finding] = []
     for path, s in all_summaries:
         for kind, sink_name, taint, line in s.sinks:
-            # Only emit when taint flows through a CALL that crosses a function
-            # boundary (pure intra-statement is handled by classic_rules).
+            # Emit when the flow crosses a function boundary (a taint-returning
+            # call) OR reaches the sink through indirection — a container /
+            # attribute / augmented-assignment / mutating method (``deep``).
+            # The trivial single-statement case is left to classic_rules.
             crossing = [r for r in taint.calls
                         if (rs := _resolve_summary(r, by_qual, by_name)) and rs.returns_taint]
-            if not crossing:
+            if not crossing and not taint.deep:
                 continue
-            src = _resolve_summary(crossing[0], by_qual, by_name)
-            src_loc = f"{src.module}.{src.name}()" if src else "helper()"
+            if crossing:
+                src = _resolve_summary(crossing[0], by_qual, by_name)
+                src_loc = f"{src.module}.{src.name}()" if src else "helper()"
+                why = f"secret returned by {src_loc} reaches {kind} sink {sink_name}()"
+            else:
+                why = (f"secret stored via a container/attribute reaches "
+                       f"{kind} sink {sink_name}()")
             rule = "CREDENTIAL_EXFILTRATION" if kind == "network" else "COMMAND_INJECTION"
             meta = get_meta(rule)
             f = Finding(
                 pattern=rule, meta=meta, confidence="High",
                 risk_score=0.9, line=line, column=1,
                 snippet=sink_name,
-                evidence=[f"cross-file taint: secret returned by {src_loc} "
-                          f"reaches {kind} sink {sink_name}() here"],
+                evidence=[("cross-file taint: " if crossing else "taint flow: ") + why + " here"],
             )
             f.artifact_uri = path
             findings.append(f)
