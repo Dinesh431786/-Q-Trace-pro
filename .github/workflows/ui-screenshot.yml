@@ -1,0 +1,58 @@
+name: UI Screenshot
+
+# Capture a real Chromium screenshot of the web UI whenever the UI changes,
+# and commit it back to the repo so the README always shows the current UI.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "qtrace-pro/web/**"
+      - "qtrace-pro/webapp.py"
+      - "qtrace-pro/tools/capture_ui.py"
+      - ".github/workflows/ui-screenshot.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ui-screenshot
+  cancel-in-progress: true
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies + Chromium
+        working-directory: qtrace-pro
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Capture screenshot
+        working-directory: qtrace-pro
+        run: python tools/capture_ui.py
+
+      - name: Point READMEs at the captured PNG
+        run: |
+          sed -i 's#assets/qtrace-ui.svg#assets/qtrace-ui.png#g' README.md || true
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/qtrace-ui.png README.md
+          if git diff --cached --quiet; then
+            echo "screenshot unchanged — nothing to commit"
+            exit 0
+          fi
+          git commit -m "ci: refresh web UI screenshot [skip ci]"
+          git push

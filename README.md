@@ -39,6 +39,10 @@ The web UI is plain HTML/CSS/JS served by Python's standard library
 
 > *Preview of the web UI analyzing the "credential exfil" example. Run
 > `python webapp.py` and open http://127.0.0.1:8000 for the interactive app.*
+>
+> A **real Chromium screenshot is auto-captured on every push** that touches the
+> UI (GitHub Actions → `tools/capture_ui.py`) and committed back as
+> `assets/qtrace-ui.png`, so this image always reflects the current UI.
 
 ### How the UI works (browser = looks, Python = brains)
 `webapp.py` is a **web server**, not the UI. It (1) hands your browser the
