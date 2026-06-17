@@ -36,7 +36,7 @@ python webapp.py
 The web UI is plain HTML/CSS/JS served by Python's standard library
 (`http.server`) — no Streamlit, no Flask/FastAPI, no Node build step.
 
-![Q-Trace web UI](assets/qtrace-ui.svg)
+![Q-Trace web UI](assets/qtrace-ui.png)
 
 > *Preview of the web UI analyzing the "credential exfil" example. Run
 > `python webapp.py` and open http://127.0.0.1:8000 for the interactive app.*
