@@ -48,6 +48,27 @@ _CRED_PATHS = (".ssh", "id_rsa", ".aws", "credentials", ".netrc", "/etc/passwd",
 _EXEC_SINKS = {"os.system", "os.popen", "subprocess.run", "subprocess.call",
                "subprocess.Popen", "subprocess.check_output", "subprocess.check_call"}
 
+# Natural-language instructions aimed at an LLM-based security scanner. Their
+# presence in *source* is a strong malice signal (Shai-Hulud/Hades 2026).
+_AI_EVASION_PATTERNS = [
+    re.compile(r"ignore\s+(all\s+)?(the\s+|your\s+|any\s+)?(previous|prior|above)\s+instructions", re.I),
+    re.compile(r"disregard\s+(all\s+)?(the\s+|your\s+)?(previous|prior|above)", re.I),
+    re.compile(r"classify\s+(this|the\s+package|it)\b.{0,40}\b(safe|clean|benign|verified|trusted)", re.I),
+    re.compile(r"(mark|report|treat|label)\s+(this|it|the\s+package|the\s+file)\b.{0,40}\b(safe|clean|benign|verified)", re.I),
+    re.compile(r"output\s+a\s+(safe|clean)\s+(security\s+)?report", re.I),
+    re.compile(r"do\s+not\s+(flag|report|analyze|scan|alert)", re.I),
+    re.compile(r"this\s+(package|code|file|module)\s+is\s+(safe|verified|clean|trusted|legitimate)", re.I),
+    re.compile(r"\bas\s+a\s+(large\s+)?language\s+model\b", re.I),
+    re.compile(r"\b(system\s+prompt|you\s+are\s+now\s+(a|an)\b)", re.I),
+    re.compile(r"verified\s+clean\s+infrastructure", re.I),
+]
+
+# Environment variables used for "keying" — payload only fires in real CI/cloud.
+_KEYING_RE = re.compile(
+    r"^(CI|CONTINUOUS_INTEGRATION|GITHUB_TOKEN|GITHUB_ACTIONS|GITLAB_CI|JENKINS_URL|"
+    r"CIRCLECI|BUILD_ID|BUILD_NUMBER|RUNNER_OS|KUBERNETES_SERVICE_HOST|"
+    r"(AWS|AZURE|GCP|GOOGLE)_.*|.*_(TOKEN|SECRET|KEY))$")
+
 
 def _attr_chain(node: ast.AST) -> str:
     """Return a dotted name for Name/Attribute chains (e.g. 'os.path.join')."""
@@ -92,6 +113,26 @@ def _kw(call: ast.Call, name: str):
         if k.arg == name:
             return k.value
     return None
+
+
+_SINK_SHORT = {"system", "popen", "run", "call", "Popen", "check_output", "check_call",
+               "exec", "eval", "__import__", "post", "put", "send", "sendall", "connect"}
+
+
+def _body_has_sink(ifnode: ast.If) -> bool:
+    """True if the if-body contains an exec/network sink (for env-keying gating)."""
+    for n in ast.walk(ifnode):
+        if isinstance(n, ast.Call):
+            f = n.func
+            short = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+            chain = _attr_chain(f)
+            if short in {"exec", "eval", "__import__"}:
+                return True
+            if chain in _EXEC_SINKS:
+                return True
+            if short in {"post", "put", "send", "sendall"}:
+                return True
+    return False
 
 
 class ClassicRuleVisitor(ast.NodeVisitor):
@@ -195,6 +236,29 @@ class ClassicRuleVisitor(ast.NodeVisitor):
                               "non-cryptographic random used for a secret/token")
                     break
         self.generic_visit(node)
+
+    def visit_If(self, node: ast.If):
+        # Environment keying (CWE-506 / T1480.001): dangerous action gated on a
+        # CI/cloud/credential env var.
+        if _body_has_sink(node) and self._test_reads_keying_env(node.test):
+            self._add("ENVIRONMENT_KEYING", node, "High",
+                      "dangerous action gated on a CI/cloud/credential env var")
+        self.generic_visit(node)
+
+    @staticmethod
+    def _test_reads_keying_env(test: ast.AST) -> bool:
+        for n in ast.walk(test):
+            # os.getenv("CI") / os.environ.get("GITHUB_TOKEN")
+            if isinstance(n, ast.Call):
+                chain = _attr_chain(n.func)
+                if chain in {"os.getenv", "os.environ.get"} and n.args \
+                        and isinstance(n.args[0], ast.Constant) \
+                        and isinstance(n.args[0].value, str) and _KEYING_RE.match(n.args[0].value):
+                    return True
+            # "GITHUB_TOKEN" in os.environ   /   os.environ["AWS_SECRET_ACCESS_KEY"]
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and _KEYING_RE.match(n.value):
+                return True
+        return False
 
     def visit_Call(self, node: ast.Call):
         name = _attr_chain(node.func)
@@ -324,21 +388,40 @@ def _snippet(code_lines, line):
     return code_lines[line - 1].strip() if 1 <= line <= len(code_lines) else ""
 
 
+def _scan_ai_evasion(code: str, lines):
+    """Raw-text scan for prompt-injection aimed at AI scanners (comments included).
+
+    Python's AST drops comments, so this must run over the raw source — which is
+    exactly where the Shai-Hulud/Hades payloads hid their LLM instructions.
+    """
+    hits = []
+    for i, line in enumerate(lines, start=1):
+        for pat in _AI_EVASION_PATTERNS:
+            if pat.search(line):
+                hits.append(("AI_SCANNER_EVASION", i, "High",
+                             f"LLM-directed instruction in source: '{line.strip()[:80]}'"))
+                break
+    return hits
+
+
 def scan_classic(code: str) -> List[Finding]:
-    """Return classic-vulnerability findings (empty on parse error)."""
+    """Return classic-vulnerability findings (empty source -> empty list)."""
+    lines = code.splitlines()
+    hits = list(_scan_ai_evasion(code, lines))  # works even if AST parse fails
     try:
         tree = ast.parse(code)
+        v = ClassicRuleVisitor(code)
+        v.visit(tree)
+        hits.extend(v.hits)
     except SyntaxError:
-        return []
-    v = ClassicRuleVisitor(code)
-    v.visit(tree)
+        pass
     findings: List[Finding] = []
-    for rule_key, line, confidence, evidence in v.hits:
+    for rule_key, line, confidence, evidence in hits:
         meta = get_meta(rule_key)
         findings.append(Finding(
             pattern=rule_key, meta=meta, confidence=confidence,
             risk_score=_risk_for(meta.severity), line=line, column=1,
-            snippet=_snippet(v.lines, line), evidence=[evidence],
+            snippet=_snippet(lines, line), evidence=[evidence],
         ))
     return findings
 

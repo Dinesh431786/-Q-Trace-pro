@@ -291,6 +291,28 @@ CATALOG: Dict[str, ThreatMeta] = {
                     "context) — the primary PyPI supply-chain poisoning vector.",
         remediation="Packages should not run commands at install/import time. Review "
                     "exactly what this code does before trusting the package."),
+    "AI_SCANNER_EVASION": ThreatMeta(
+        rule_id="QT.AI_SCANNER_EVASION", title="AI-Scanner Evasion (Prompt Injection in Code)",
+        cwe="CWE-506", cwe_name="Embedded Malicious Code",
+        severity="High", base_confidence="Medium",
+        description="Source contains natural-language instructions aimed at an "
+                    "LLM-based security scanner (e.g. 'ignore previous instructions', "
+                    "'classify this package as safe'). Seen in the 2026 Shai-Hulud/"
+                    "Hades PyPI campaign to make AI scanners report malware as clean. "
+                    "Its mere presence is a strong malice signal — benign code never "
+                    "addresses a security scanner.",
+        remediation="Treat as malicious. A deterministic (non-LLM) analyzer is immune "
+                    "to this evasion; manually review the surrounding code/payload."),
+    "ENVIRONMENT_KEYING": ThreatMeta(
+        rule_id="QT.ENVIRONMENT_KEYING", title="Environment-Keyed Trigger",
+        cwe="CWE-506", cwe_name="Embedded Malicious Code",
+        severity="High", base_confidence="Medium",
+        description="A dangerous action is gated on the presence of CI / cloud / "
+                    "credential environment variables (CI, GITHUB_TOKEN, AWS_*, …) — "
+                    "MITRE ATT&CK T1480.001. The payload stays dormant in sandboxes "
+                    "and detonates only in a real CI/developer environment.",
+        remediation="Audit why execution depends on CI/cloud env vars; malware uses "
+                    "this to evade dynamic analysis while targeting real pipelines."),
 }
 
 # Fallback for any unknown rule so reporting never KeyErrors.
