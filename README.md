@@ -35,6 +35,22 @@ python webapp.py
 The web UI is plain HTML/CSS/JS served by Python's standard library
 (`http.server`) — no Streamlit, no Flask/FastAPI, no Node build step.
 
+![Q-Trace web UI](assets/qtrace-ui.svg)
+
+> *Preview of the web UI analyzing the "credential exfil" example. Run
+> `python webapp.py` and open http://127.0.0.1:8000 for the interactive app.*
+
+### How the UI works (browser = looks, Python = brains)
+`webapp.py` is a **web server**, not the UI. It (1) hands your browser the
+`web/index.html` page, and (2) answers `POST /api/scan` by running the analyzer
+and returning JSON. The browser renders the HTML/CSS and runs the JS — so the
+detection stays in Python while the interface is standard web tech.
+
+```
+python webapp.py → server on :8000 → browser GET / → index.html
+   click Analyze → JS fetch /api/scan → Python analyzer → JSON → finding cards
+```
+
 > The complete application lives in **[`qtrace-pro/`](qtrace-pro/)**.
 
 ## 👤 Who it's for

