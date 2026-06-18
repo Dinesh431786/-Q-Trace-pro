@@ -301,6 +301,37 @@ def test_environment_keying_clean_without_sink():
     assert not any(f.pattern == "ENVIRONMENT_KEYING" for f in scan_classic(code))
 
 
+# --- typosquat / slopsquat dependency audit -------------------------------- #
+def test_typosquat_dependency_detected():
+    from dependency_audit import audit_manifest
+    fs = audit_manifest("requirements.txt", "requests\nrequsts\nnumpyy\n")
+    flagged = {f.snippet for f in fs if f.pattern == "TYPOSQUAT_DEPENDENCY"}
+    assert "requsts" in flagged and "numpyy" in flagged
+
+
+def test_python_prefix_confusion_detected():
+    from dependency_audit import audit_manifest
+    fs = audit_manifest("requirements.txt", "python-requests\n")
+    assert any(f.pattern == "TYPOSQUAT_DEPENDENCY" for f in fs)
+
+
+def test_legit_dependencies_are_clean():
+    from dependency_audit import audit_manifest
+    legit = "requests\nnumpy\npandas\npython-dateutil\nscikit-learn\nFlask\nPyYAML\nbeautifulsoup4\n"
+    assert audit_manifest("requirements.txt", legit) == []
+
+
+def test_unique_internal_name_not_flagged():
+    from dependency_audit import audit_manifest
+    assert audit_manifest("requirements.txt", "super-unique-internal-xyz\nmycorp-tooling\n") == []
+
+
+def test_pyproject_dependencies_parsed():
+    from dependency_audit import audit_manifest
+    text = '[project]\nname = "x"\ndependencies = ["requsts>=2.0", "flask"]\n'
+    assert any(f.pattern == "TYPOSQUAT_DEPENDENCY" for f in audit_manifest("pyproject.toml", text))
+
+
 # --- tamper-evident audit ledger ------------------------------------------- #
 def _tmp_ledger():
     import os, tempfile

@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-61%2F61%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-66%2F66%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-why-deterministic-beats-the-ai-noise)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
@@ -147,6 +147,7 @@ behavioural sandboxes. It pairs well with them.
 | Credential / data exfiltration (env / secret → network) | CWE-200 | Critical |
 | **AI-scanner evasion** (prompt injection in code/comments) | CWE-506 | High |
 | **Environment-keyed trigger** (CI/cloud-gated payload) | CWE-506 | High |
+| **Typosquat / slopsquat dependency** (requirements/pyproject) | CWE-829 | High |
 | Install / import-time code execution (setup.py hooks) | CWE-506 | Critical |
 | Steganographic / covert channel (chr+ord / XOR) | CWE-515 | Critical |
 | Encoded / obfuscated payload (base64/XOR → exec) | CWE-506 | Critical |
@@ -210,7 +211,7 @@ break a CI build), `1` = usage/IO error.
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 61 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 66 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

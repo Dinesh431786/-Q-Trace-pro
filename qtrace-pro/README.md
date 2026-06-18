@@ -53,6 +53,7 @@ python webapp.py        # web UI on http://127.0.0.1:8000  (stdlib only)
 ### Module map
 - **`cli.py`** — command-line scanner (file/dir → text/JSON/SARIF, CI exit codes).
 - **`taint.py`** — cross-file interprocedural taint (secret source → sink across modules).
+- **`dependency_audit.py`** — typosquat / slopsquat / dependency-confusion checks on manifests.
 - **`ledger.py`** — tamper-evident, hash-chained audit ledger (optional HMAC signing).
 - **`classic_rules.py`** — classic OWASP/CWE SAST rules (SQLi, command injection, etc.).
 - **`obfuscation.py`** — encoded-payload detector (entropy + Higuchi fractal dimension).
@@ -86,6 +87,7 @@ file (CWE-377), debug mode (CWE-489), cleartext transmission (CWE-319).
 | Credential / data exfiltration (env / secret → network) | CWE-200 | Critical |
 | AI-scanner evasion (prompt injection in code) | CWE-506 | High |
 | Environment-keyed trigger (CI/cloud-gated payload) | CWE-506 | High |
+| Typosquat / slopsquat dependency (requirements/pyproject) | CWE-829 | High |
 | Install / import-time code execution (setup.py hooks) | CWE-506 | Critical |
 | Steganographic / covert channel | CWE-515 | Critical |
 | Encoded / obfuscated payload (base64/XOR → exec) | CWE-506 | Critical |
@@ -103,7 +105,7 @@ python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 61 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 66 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

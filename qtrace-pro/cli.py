@@ -52,6 +52,20 @@ def _iter_python_files(path):
                 yield os.path.join(root, f)
 
 
+_MANIFEST_NAMES = ("pyproject.toml", "setup.py", "setup.cfg")
+
+
+def _iter_manifests(path):
+    if os.path.isfile(path):
+        return
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for f in files:
+            low = f.lower()
+            if f in _MANIFEST_NAMES or (low.endswith(".txt") and "require" in low):
+                yield os.path.join(root, f)
+
+
 def _scan_path(path, use_symbolic):
     """Analyze every .py file under path; return (all_findings, files_scanned, errors).
 
@@ -85,6 +99,18 @@ def _scan_path(path, use_symbolic):
         all_findings.extend(analyze_package(corpus))
     except Exception as e:
         print(_c("0;33", f"cross-file taint skipped: {e}"), file=sys.stderr)
+
+    # Dependency manifests: typosquat / slopsquat checks.
+    try:
+        from dependency_audit import audit_manifest
+        for mp in _iter_manifests(path):
+            try:
+                with open(mp, "r", encoding="utf-8", errors="replace") as fh:
+                    all_findings.extend(audit_manifest(os.path.relpath(mp), fh.read()))
+            except Exception:
+                pass
+    except Exception as e:
+        print(_c("0;33", f"dependency audit skipped: {e}"), file=sys.stderr)
 
     return all_findings, files, errors
 

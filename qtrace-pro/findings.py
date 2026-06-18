@@ -313,6 +313,17 @@ CATALOG: Dict[str, ThreatMeta] = {
                     "and detonates only in a real CI/developer environment.",
         remediation="Audit why execution depends on CI/cloud env vars; malware uses "
                     "this to evade dynamic analysis while targeting real pipelines."),
+    "TYPOSQUAT_DEPENDENCY": ThreatMeta(
+        rule_id="QT.TYPOSQUAT_DEPENDENCY", title="Typosquat / Slopsquat Dependency",
+        cwe="CWE-829", cwe_name="Inclusion of Functionality from Untrusted Control Sphere",
+        severity="High", base_confidence="Medium",
+        description="A declared dependency name is one edit away from a popular "
+                    "package (typosquatting) or uses a known confusion trick. This is "
+                    "also the 'slopsquatting' vector: LLM assistants hallucinate "
+                    "plausible package names that attackers register on PyPI.",
+        remediation="Verify the package name is the one you intended and that it "
+                    "exists/ is maintained on PyPI before installing; pin the correct "
+                    "name and hash."),
 }
 
 # Fallback for any unknown rule so reporting never KeyErrors.

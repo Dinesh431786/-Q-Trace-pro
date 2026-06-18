@@ -130,6 +130,14 @@ def build_files_response(files: dict) -> dict:
         all_findings.extend(analyze_package(files))
     except Exception:
         pass
+    # Dependency manifests in the upload: typosquat / slopsquat checks.
+    try:
+        from dependency_audit import audit_manifest, is_manifest
+        for path, code in files.items():
+            if is_manifest(path):
+                all_findings.extend(audit_manifest(path, code))
+    except Exception:
+        pass
 
     avg_entropy = sum(entropies) / len(entropies) if entropies else 0.0
     return _payload(
