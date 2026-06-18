@@ -187,8 +187,20 @@ class _SinkScanner(ast.NodeVisitor):
                 return BARE_SINKS[f.attr]
             entry = ATTR_SINKS.get(f.attr)
             if entry and self._receiver_root(f) in entry[0]:
-                return entry[1]
+                disp = entry[1]
+                # subprocess with a list/tuple literal and no shell=True is the
+                # safe form — don't raise a High sink for it (avoids FPs).
+                if disp.startswith("subprocess.") and self._safe_subprocess(node):
+                    return None
+                return disp
         return None
+
+    @staticmethod
+    def _safe_subprocess(node: ast.Call) -> bool:
+        shell = next((k.value for k in node.keywords if k.arg == "shell"), None)
+        if isinstance(shell, ast.Constant) and shell.value is True:
+            return False
+        return bool(node.args) and isinstance(node.args[0], (ast.List, ast.Tuple))
 
     @staticmethod
     def _is_gated(test: ast.AST) -> bool:

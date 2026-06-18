@@ -107,7 +107,7 @@ python cli.py fix app.py --write                       # apply deterministic aut
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 74 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 77 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

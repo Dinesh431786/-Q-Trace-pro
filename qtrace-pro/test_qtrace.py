@@ -368,6 +368,14 @@ def test_webapp_response_includes_fixes():
     assert r["fixes"]["count"] >= 1 and r["fixes"]["diff"]
 
 
+# --- measured benchmark (regression guard on the headline numbers) --------- #
+def test_benchmark_recall_and_false_positive_rate():
+    import benchmark_real as B
+    cat_recall, fp_rate = B.main()
+    assert cat_recall == 1.0, f"detection recall regressed to {cat_recall}"
+    assert fp_rate <= 0.05, f"false-positive rate regressed to {fp_rate}"
+
+
 # --- typosquat / slopsquat dependency audit -------------------------------- #
 def test_typosquat_dependency_detected():
     from dependency_audit import audit_manifest
@@ -455,9 +463,21 @@ def test_flask_app_run_is_not_a_sink():
     assert not any(f.pattern == "DANGEROUS_SINK" for f in res.findings)
 
 
-def test_subprocess_run_still_flagged():
-    res = analyze("import subprocess\nsubprocess.run(['ls'])")
+def test_subprocess_with_variable_is_flagged():
+    # dynamic/unknown argument is the risky form -> flagged
+    res = analyze("import subprocess\nsubprocess.run(cmd)")
     assert any(f.pattern == "DANGEROUS_SINK" for f in res.findings)
+
+
+def test_safe_subprocess_list_not_flagged():
+    # list args + no shell=True is the safe form -> not a sink (FP fix)
+    res = analyze("import subprocess\nsubprocess.run(['ls', '-l'], check=True)")
+    assert not any(f.pattern == "DANGEROUS_SINK" for f in res.findings)
+
+
+def test_subprocess_shell_true_still_flagged():
+    res = analyze("import subprocess\nsubprocess.run(['sh', '-c', x], shell=True)")
+    assert any(f.pattern in ("DANGEROUS_SINK", "COMMAND_INJECTION") for f in res.findings)
 
 
 def test_dict_get_is_clean():

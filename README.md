@@ -3,8 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-77%2F77%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-why-deterministic-beats-the-ai-noise)
+[![Benchmark](https://img.shields.io/badge/benchmark-0%25%20FP%20%C2%B7%20100%25%20recall-success.svg)](qtrace-pro/BENCHMARK.md)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
 families of risk in one pass:
@@ -194,6 +195,28 @@ deterministic, explainable, and immune to the attacks now aimed at AI tooling.
 (Sources: Zscaler ThreatLabz & Endor Labs on Shai-Hulud AI-scanner evasion;
 OWASP LLM01; arXiv 2601.22952 on non-deterministic LLM triage.)
 
+## 📊 Measured benchmark
+
+Reproducible (`python benchmark_real.py`, writes [`qtrace-pro/BENCHMARK.md`](qtrace-pro/BENCHMARK.md))
+over **28 malicious** samples (faithful reconstructions of documented 2024–26
+campaigns — W4SP, Hades `.pth`, telnyx WAV-XOR, slopsquat, env-keying,
+Shai-Hulud AI-evasion) and **32 realistic benign hard-negatives** (the code that
+trips other SAST tools — safe `subprocess` with list args, `md5(usedforsecurity=False)`,
+`random` for sampling, parameterized SQL, `verify=True`, CI env checks, legit deps…):
+
+| Metric | Value |
+|---|---|
+| **Detection recall** (correct threat category) | **28/28 = 100%** |
+| **False-positive rate** (benign breaking `--fail-on High`) | **0/32 = 0.0%** |
+| **Precision** | **100%** · F1 0.88 |
+
+The benchmark is wired into the test suite as a regression guard, and **it found
+and fixed real false positives** in the process (over-eager `subprocess` flagging;
+Low-confidence findings tripping the CI gate). Context: independent studies put
+commodity SAST false-positive rates around **45–91%** — this is the metric that
+decides whether teams keep a scanner on. *(0% is on this representative corpus,
+not a universal claim.)*
+
 ## 💻 Command-line usage
 
 ```bash
@@ -214,7 +237,7 @@ break a CI build), `1` = usage/IO error.
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 74 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 77 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

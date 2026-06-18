@@ -228,8 +228,11 @@ def main(argv=None):
     else:
         sys.stdout.write(report)
 
+    # Gate on the two-axis model: a finding breaks the build only if it is at/
+    # above the severity floor AND not Low-confidence (avoids noisy CI failures).
     gate = _RANK[args.fail_on]
-    return 2 if any(_RANK.get(f.severity, 0) >= gate for f in findings) else 0
+    return 2 if any(_RANK.get(f.severity, 0) >= gate and f.confidence != "Low"
+                    for f in findings) else 0
 
 
 if __name__ == "__main__":
