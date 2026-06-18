@@ -316,6 +316,58 @@ def test_environment_keying_clean_without_sink():
     assert not any(f.pattern == "ENVIRONMENT_KEYING" for f in scan_classic(code))
 
 
+# --- deterministic auto-fix ------------------------------------------------ #
+def test_autofix_rewrites_unambiguous_issues():
+    from autofix import suggest_fixes
+    code = ("import hashlib, yaml, tempfile, requests\n"
+            "h = hashlib.md5(d)\ncfg = yaml.load(s)\n"
+            "t = tempfile.mktemp()\nr = requests.get(u, verify=False)\n")
+    res = suggest_fixes(code)
+    assert res.count == 4
+    assert "hashlib.sha256(" in res.patched and "yaml.safe_load(" in res.patched
+    assert "verify=True" in res.patched and "tempfile.mkstemp(" in res.patched
+    assert res.diff.startswith("---")
+
+
+def test_autofix_patched_code_clears_findings():
+    from autofix import suggest_fixes
+    from analyzer import analyze
+    code = "import hashlib, requests\nh = hashlib.md5(d)\nr = requests.get(u, verify=False)\n"
+    before = {f.pattern for f in analyze(code).findings}
+    after = {f.pattern for f in analyze(suggest_fixes(code).patched).findings}
+    assert "WEAK_HASH" in before and "WEAK_HASH" not in after
+    assert "DISABLED_CERT_VALIDATION" in before and "DISABLED_CERT_VALIDATION" not in after
+
+
+def test_autofix_does_not_touch_unrelated_debug():
+    from autofix import suggest_fixes
+    # debug=True without a .run( call must be left alone
+    res = suggest_fixes("config.debug = True\nflags = dict(debug=True)\n")
+    assert res.count == 0
+
+
+def test_autofix_benign_code_no_fixes():
+    from autofix import suggest_fixes
+    assert suggest_fixes("def add(a, b):\n    return a + b\n").count == 0
+
+
+def test_cli_fix_applies_in_place():
+    import os, tempfile
+    from cli import main
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "v.py")
+    with open(p, "w") as fh:
+        fh.write("import hashlib\nh = hashlib.md5(x)\n")
+    assert main(["fix", p, "--write"]) == 0
+    assert "hashlib.sha256(" in open(p).read()
+
+
+def test_webapp_response_includes_fixes():
+    from webapp import build_scan_response
+    r = build_scan_response("import hashlib\nh = hashlib.md5(x)")
+    assert r["fixes"]["count"] >= 1 and r["fixes"]["diff"]
+
+
 # --- typosquat / slopsquat dependency audit -------------------------------- #
 def test_typosquat_dependency_detected():
     from dependency_audit import audit_manifest

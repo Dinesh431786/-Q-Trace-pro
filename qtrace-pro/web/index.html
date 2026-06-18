@@ -184,6 +184,7 @@
       <div id="pane-findings" class="pane active"></div>
       <div id="pane-flow" class="pane"></div>
       <div id="pane-engines" class="pane"></div>
+      <div id="pane-fixes" class="pane"></div>
       <div id="pane-metrics" class="pane"></div>
       <div id="pane-prov" class="pane"></div>
     </div>
@@ -335,8 +336,9 @@ function taintFindings(r){return r.findings.filter(f=>(f.evidence||[]).some(e=>/
 
 function renderTabs(r){
   const flow=taintFindings(r);
+  const nfix=(r.fixes&&r.fixes.count)||0;
   const tabs=[["findings","Findings",r.findings.length],["flow","Data flow",flow.length],
-    ["engines","Engines",r.health.length],["metrics","Metrics",null],["prov","Provenance",null]];
+    ["fixes","Auto-fix",nfix],["engines","Engines",r.health.length],["metrics","Metrics",null],["prov","Provenance",null]];
   $("#rtabs").innerHTML=tabs.map((t,i)=>`<div class="rtab ${i===0?'active':''}" data-p="${t[0]}">${t[1]}${t[2]!=null?`<span class="cnt">${t[2]}</span>`:""}</div>`).join("");
   document.querySelectorAll(".rtab").forEach(el=>el.onclick=()=>{
     document.querySelectorAll(".rtab").forEach(x=>x.classList.remove("active"));el.classList.add("active");
@@ -366,6 +368,24 @@ function renderTabs(r){
   $("#pane-prov").innerHTML = `<div class="mrow"><span>Report SHA-256 (tamper-evident)</span><b style="font-size:11.5px">${esc((pv.report_sha256||"").slice(0,32))}…</b></div>
     <div style="margin-top:12px;color:var(--muted);font-size:12.5px">This hash commits to the exact report. The CLI can append it to a
     hash-chained audit ledger (<code class="k">qtrace scan --ledger</code>) so the scan history is tamper-evident — verifiable offline, no blockchain required.</div>`;
+  // Auto-fix (deterministic, no-LLM)
+  const fx=r.fixes||{count:0,fixes:[],diff:""};
+  if(!fx.count){
+    $("#pane-fixes").innerHTML=`<div class="empty">No deterministic auto-fixes for this input.<br>
+      <span style="font-size:12px">Auto-fix covers unambiguous rewrites (weak hash, verify=False, yaml.load, mktemp, debug=True). Judgement-based fixes (SQLi, command injection) are left to you — see each finding's remediation.</span></div>`;
+  } else {
+    $("#pane-fixes").innerHTML =
+      `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">${fx.count} deterministic fix(es) — reproducible AST-anchored rewrites, no LLM. Review the diff before applying.</div>`+
+      fx.fixes.map(f=>`<div class="finding" style="border-left-color:var(--low)">
+        <h4>${esc(f.title)} <span class="badge">${esc(f.rule)}</span> <span class="path">line ${f.line}</span></h4>
+        <div class="ev"><span style="color:var(--high)">- ${esc(f.before)}</span><br><span style="color:var(--low)">+ ${esc(f.after)}</span></div></div>`).join("")+
+      `<div class="row"><button id="copyDiff">Copy unified diff</button><button id="dlPatched">Download patched .py</button></div>
+       <div class="cv" style="margin-top:10px"><table>${fx.diff.split("\n").map(l=>{
+          const c=l.startsWith("+")&&!l.startsWith("+++")?"var(--low)":l.startsWith("-")&&!l.startsWith("---")?"var(--high)":"var(--muted)";
+          return `<tr><td style="color:${c}">${esc(l)||" "}</td></tr>`;}).join("")}</table></div>`;
+    const cd=$("#copyDiff"); if(cd) cd.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(fx.diff);cd.textContent="Copied ✓";};
+    const dp=$("#dlPatched"); if(dp) dp.onclick=()=>download("patched.py", fx.patched);
+  }
 }
 
 // --- findings with triage (filter / hide-low / group / ignore) ------------

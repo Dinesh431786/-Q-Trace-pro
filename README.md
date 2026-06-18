@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-[![Tests](https://img.shields.io/badge/tests-68%2F68%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-74%2F74%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-why-deterministic-beats-the-ai-noise)
 
 **Local-native, air-gapped Python source-code security scanner.** It covers two
@@ -90,6 +90,7 @@ behavioural sandboxes. It pairs well with them.
 | **Cross-file taint** | An interprocedural pass follows a secret (`os.environ`, credential files) through function returns, module imports, **containers** (`d['k']=secret`), **object attributes** (`self.creds=…` read in another method), and augmented assignment into a network/exec sink — catching distributed backdoors where source and sink live in different files/functions. |
 | **Verifiable & triageable** | The UI shows your code with the **offending line highlighted** (click a finding to jump), plus severity filters, **collapse low-confidence**, group-by-file, and per-finding **Ignore** (false-positive triage) — directly attacking the alert fatigue that makes teams abandon SAST. |
 | **Deterministic attack narrative** | Every finding gets a reproducible **Entry → Mechanism → Impact** story (no LLM) — the explainability of AI tools without the hallucination, non-determinism, or cloud upload. |
+| **No-LLM auto-fix** | For unambiguous issues (weak hash, `verify=False`, `yaml.load`, `mktemp`, `debug=True`) Q-Trace emits a **reproducible unified diff** you can review and apply (`qtrace fix --write`) — the autofix that AI tools sell, but deterministic and verified (the patched code re-scans clean). Judgement-based fixes are left to you. |
 | **Tamper-evident audit trail** | Each scan can be appended to a SHA-256 **hash-chained** ledger (optional HMAC signing). Any later edit or deletion of a past result breaks the chain and is caught by `verify-ledger` — integrity/non-repudiation à la SLSA/in-toto, *not* a distributed blockchain. |
 | **Accurate — low false positives** | Sink-aware confidence scoring. A `random.random() < x` check is only high-confidence when a real execution/exfiltration **sink** sits in the guarded branch; benign sampling drops to *Low*. Two independent axes (severity × confidence), per Bandit/OWASP guidance. Every classic rule has a safe-variant test. |
 | **Lightweight & fast** | A custom **pure-NumPy quantum-inspired simulator** (`qsim.py`) replaces the heavyweight `cirq` dependency — ~10× faster import, a few KB instead of hundreds of MB, identical math (validated against cirq). Content-hash caching skips re-analysis. Typical audit: tens of milliseconds. |
@@ -213,7 +214,7 @@ break a CI build), `1` = usage/IO error.
 
 ```bash
 cd qtrace-pro
-python test_qtrace.py     # standalone runner (no pytest needed) — 68 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 74 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

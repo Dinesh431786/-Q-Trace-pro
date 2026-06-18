@@ -94,7 +94,7 @@ def build_scan_response(code: str) -> dict:
         return {"ok": False, "error": str(e)}
     except Exception as e:
         return {"ok": False, "error": f"internal error: {e}"}
-    return _payload(
+    payload = _payload(
         res.findings, files_scanned=1, entropy=res.ast_entropy,
         physics=_agg_physics(res.physics_metrics),
         symbolic=res.symbolic[0] if res.symbolic else None,
@@ -102,6 +102,13 @@ def build_scan_response(code: str) -> dict:
         sinks=[{"name": s.name, "line": s.line, "guarded": s.in_guarded_branch} for s in res.sinks],
         duration_ms=res.duration_s * 1000,
     )
+    # Deterministic, no-LLM auto-fix suggestions for this snippet.
+    try:
+        from autofix import suggest_fixes
+        payload["fixes"] = suggest_fixes(code).to_dict()
+    except Exception:
+        payload["fixes"] = {"count": 0, "fixes": [], "patched": "", "diff": ""}
+    return payload
 
 
 def build_files_response(files: dict) -> dict:

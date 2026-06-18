@@ -160,6 +160,9 @@ def main(argv=None):
                     help="append this scan to a tamper-evident hash-chained audit ledger")
     vp = sub.add_parser("verify-ledger", help="verify the integrity of an audit ledger")
     vp.add_argument("path", help="ledger file to verify")
+    fp = sub.add_parser("fix", help="show/apply deterministic auto-fixes for a file")
+    fp.add_argument("path", help="Python file to fix")
+    fp.add_argument("--write", action="store_true", help="apply the fixes in place")
     args = p.parse_args(argv)
 
     if args.command == "verify-ledger":
@@ -167,6 +170,26 @@ def main(argv=None):
         print(ledger_summary(args.path))
         ok, _ = verify_ledger(args.path)
         return 0 if ok else 2
+
+    if args.command == "fix":
+        from autofix import suggest_fixes
+        if not os.path.isfile(args.path):
+            print(f"file not found: {args.path}", file=sys.stderr)
+            return 1
+        with open(args.path, "r", encoding="utf-8", errors="replace") as fh:
+            code = fh.read()
+        res = suggest_fixes(code, os.path.basename(args.path))
+        if not res.count:
+            print("No deterministic auto-fixes available.")
+            return 0
+        if args.write:
+            with open(args.path, "w", encoding="utf-8") as fh:
+                fh.write(res.patched)
+            print(f"applied {res.count} fix(es) to {args.path}")
+        else:
+            sys.stdout.write(res.diff)
+            print(f"\n{res.count} fix(es) available — re-run with --write to apply", file=sys.stderr)
+        return 0
 
     if args.command != "scan":
         p.print_help()
