@@ -197,7 +197,7 @@ OWASP LLM01; arXiv 2601.22952 on non-deterministic LLM triage.)
 
 ## 📊 Measured benchmark
 
-Reproducible (`python benchmark_real.py`, writes [`qtrace-pro/BENCHMARK.md`](qtrace-pro/BENCHMARK.md))
+Reproducible (`python benchmark.py`, writes [`qtrace-pro/BENCHMARK.md`](qtrace-pro/BENCHMARK.md))
 over **28 malicious** samples (faithful reconstructions of documented 2024–26
 campaigns — W4SP, Hades `.pth`, telnyx WAV-XOR, slopsquat, env-keying,
 Shai-Hulud AI-evasion) and **32 realistic benign hard-negatives** (the code that
@@ -239,7 +239,7 @@ break a CI build), `1` = usage/IO error.
 cd qtrace-pro
 python test_qtrace.py     # standalone runner (no pytest needed) — 77 tests
 pytest test_qtrace.py     # or via pytest
-python benchmark.py       # labelled detection benchmark (recall)
+python benchmark.py       # measured benchmark (recall + false-positive rate) -> BENCHMARK.md
 ```
 
 ## 📄 License

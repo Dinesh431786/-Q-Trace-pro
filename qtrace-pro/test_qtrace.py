@@ -370,7 +370,7 @@ def test_webapp_response_includes_fixes():
 
 # --- measured benchmark (regression guard on the headline numbers) --------- #
 def test_benchmark_recall_and_false_positive_rate():
-    import benchmark_real as B
+    import benchmark as B
     cat_recall, fp_rate = B.main()
     assert cat_recall == 1.0, f"detection recall regressed to {cat_recall}"
     assert fp_rate <= 0.05, f"false-positive rate regressed to {fp_rate}"
