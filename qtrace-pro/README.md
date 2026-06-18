@@ -105,7 +105,7 @@ python cli.py scan . --min-severity Medium --fail-on High   # CI gate (exit 2 on
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 66 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 68 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # labelled detection benchmark (recall)
 ```

@@ -48,9 +48,12 @@ def _agg_physics(metrics_list):
 
 
 def _finding_dict(f):
+    from findings import attack_narrative
     d = f.to_dict()
     d["cwe_uri"] = f.meta.cwe_uri()
     d["artifact_uri"] = getattr(f, "artifact_uri", "") or "snippet"
+    # Deterministic Entry → Mechanism → Impact story (the no-LLM "explanation").
+    d["narrative"] = attack_narrative(f.pattern, f.meta, f.evidence)
     return d
 
 

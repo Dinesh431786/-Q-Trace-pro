@@ -398,3 +398,67 @@ def dedupe(findings: List[Finding]) -> List[Finding]:
     # Sort by severity then risk (most important first).
     order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Info": 4}
     return sorted(best.values(), key=lambda x: (order.get(x.severity, 9), -x.risk_score))
+
+
+# --------------------------------------------------------------------------- #
+# Deterministic "attack narrative" — the no-LLM answer to AI "explanations".
+# A reproducible Entry → Mechanism → Impact story per finding, so a reviewer
+# understands *how* a finding becomes an exploit without trusting a chatbot.
+# --------------------------------------------------------------------------- #
+_NARRATIVES: Dict[str, tuple] = {
+    "CREDENTIAL_EXFILTRATION": (
+        "Code reads secrets — environment variables or credential files (~/.ssh, .aws).",
+        "Those secrets flow (here, possibly across files/functions) into an outbound network call.",
+        "Tokens / cloud keys are exfiltrated to an attacker endpoint — full account takeover."),
+    "AI_SCANNER_EVASION": (
+        "A package ships source whose comments/strings address an LLM-based security scanner.",
+        "The text instructs the AI to 'classify this as clean', suppressing its own detection.",
+        "AI-first pipelines wave the malware through; only a deterministic (no-LLM) review catches it."),
+    "ENVIRONMENT_KEYING": (
+        "Execution is gated on a CI/cloud env var (CI, GITHUB_TOKEN, AWS_*).",
+        "In a sandbox the var is absent, so the payload stays dormant and looks benign.",
+        "In a real CI/developer machine it detonates — evading dynamic analysis by design."),
+    "INSTALL_HOOK": (
+        "Shell/exec runs at module top level in a packaging context (setup.py / __init__.py).",
+        "`pip install` or the first `import` executes it before any of your code runs.",
+        "Arbitrary code runs on every install/import — the primary PyPI poisoning vector."),
+    "TYPOSQUAT_DEPENDENCY": (
+        "A dependency name is one edit from a popular package (or an AI-hallucinated name).",
+        "`pip install` happily fetches the attacker-registered look-alike from PyPI.",
+        "Malicious package code executes with your privileges on install/import."),
+    "OBFUSCATED_PAYLOAD": (
+        "A high-entropy encoded blob (base64/XOR) sits in the source.",
+        "It is decoded at runtime and handed to exec/eval.",
+        "The real payload — hidden from reviewers and signature scanners — runs."),
+    "SQL_INJECTION": (
+        "User-controlled data is interpolated straight into a SQL string.",
+        "The query is sent to the database with attacker-shaped syntax.",
+        "Data is read/modified/dumped, or auth is bypassed."),
+    "COMMAND_INJECTION": (
+        "A shell command is built from dynamic input or run with shell=True.",
+        "The shell interprets attacker metacharacters in that input.",
+        "Arbitrary OS commands run with the process's privileges."),
+    "INSECURE_DESERIALIZATION": (
+        "Untrusted bytes are handed to pickle/marshal/yaml.load.",
+        "Deserialization reconstructs attacker-chosen objects, invoking __reduce__/constructors.",
+        "Arbitrary code executes during the load."),
+    "PROBABILISTIC_BOMB": (
+        "A dangerous action sits behind a low-probability random check.",
+        "It fires only occasionally, so sandbox/CI runs usually look clean.",
+        "On some real executions the payload detonates — a stealthy logic bomb."),
+}
+
+
+def attack_narrative(pattern: str, meta: ThreatMeta, evidence=None) -> List[str]:
+    """Return a 3-step Entry → Mechanism → Impact story for a finding."""
+    steps = _NARRATIVES.get(pattern)
+    if steps is None:
+        steps = (
+            f"A {meta.cwe} weakness ({meta.cwe_name}) is present in the code.",
+            meta.description,
+            "If reached by an attacker, this enables the impact above.")
+    out = [f"Entry — {steps[0]}", f"Mechanism — {steps[1]}", f"Impact — {steps[2]}"]
+    if evidence:
+        out.append(f"Evidence — {evidence[0]}")
+    return out
+

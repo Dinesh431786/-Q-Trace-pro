@@ -90,6 +90,32 @@
     display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px}
   @keyframes spin{to{transform:rotate(360deg)}}
   code.k{background:var(--panel3);padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:12px}
+  /* code viewer */
+  .cv{background:#070b11;border:1px solid var(--border);border-radius:9px;overflow:auto;max-height:300px;margin:14px 0 4px}
+  .cv table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px}
+  .cv td{padding:1px 10px;white-space:pre;vertical-align:top}
+  .cv td.ln{color:#56657a;text-align:right;user-select:none;width:1%;border-right:1px solid var(--border)}
+  .cv tr.hit{background:rgba(229,72,77,0.12)}
+  .cv tr.hit td.ln{border-left:3px solid var(--high);padding-left:7px}
+  .cv tr.flash{animation:flash 1.1s ease}
+  @keyframes flash{0%{background:rgba(79,156,249,0.35)}100%{}}
+  /* findings toolbar + triage + narrative */
+  .ftools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+  .fchip{font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);color:var(--muted);cursor:pointer}
+  .fchip.active{color:#fff;border-color:transparent;background:var(--panel3)}
+  .toggle{font-size:12px;color:var(--muted);cursor:pointer;user-select:none;display:flex;gap:5px;align-items:center}
+  .finding.ignored{opacity:.45}
+  .fbtns{margin-left:auto;display:flex;gap:6px}
+  .fbtns button{padding:3px 9px;font-size:11px;font-weight:600}
+  .story{margin-top:9px;border-top:1px solid var(--border);padding-top:9px;display:none}
+  .story.open{display:block}
+  .step{display:flex;gap:9px;margin:5px 0;font-size:12.5px}
+  .step .b{font-weight:800;min-width:74px;color:#fff;border-radius:5px;padding:1px 7px;height:fit-content;font-size:10.5px;text-align:center}
+  .step.entry .b{background:#3b82f6}.step.mechanism .b{background:#e2a83b;color:#1b1b1b}.step.impact .b{background:#b3122a}.step.evidence .b{background:#2a3445}
+  .flowchain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 4px}
+  .flownode{background:var(--panel3);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12px;max-width:340px}
+  .flowarrow{color:var(--accent);font-weight:800}
+  .disclose{font-size:12px;color:var(--accent);cursor:pointer;user-select:none}
 </style>
 </head>
 <body>
@@ -153,6 +179,7 @@
     </div>
     <div class="card-b">
       <div id="summary"></div>
+      <div id="codeview"></div>
       <div class="rtabs" id="rtabs"></div>
       <div id="pane-findings" class="pane active"></div>
       <div id="pane-flow" class="pane"></div>
@@ -217,9 +244,11 @@ function readText(file){return new Promise((res,rej)=>{const fr=new FileReader()
 async function runPaste(){
   const code=$("#code").value;
   if(!code.trim()){setStatus("Nothing to analyze.");return;}
+  scanCode=code;
   busy(true); try{ show(await post("/api/scan",{code})); } finally{ busy(false); }
 }
 async function runFiles(fileList){
+  scanCode=null;
   const pys=[...fileList].filter(f=>f.name.endsWith(".py"));
   const zip=[...fileList].find(f=>f.name.endsWith(".zip"));
   busy(true);
@@ -251,13 +280,37 @@ $("#dlJson").onclick=()=>lastResp&&download("qtrace_report.json",lastResp.json);
 $("#dlSarif").onclick=()=>lastResp&&download("qtrace.sarif",lastResp.sarif);
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter")$("#run").click();});
 
+// triage state (persisted) + filters
+let scanCode=null;
+let filterState={sev:"All",hideLow:false,group:false};
+let ignored=new Set(JSON.parse(localStorage.getItem("qt_ignored")||"[]"));
+function saveIgnored(){localStorage.setItem("qt_ignored",JSON.stringify([...ignored]));}
+
 function show(resp){
   lastResp=resp;
   $("#welcome").style.display="none";
   $("#resultCard").style.display="";
   if(!resp.ok){ $("#summary").innerHTML=`<div class="err">⚠ ${esc(resp.error)}</div>`;
-    $("#rtabs").innerHTML="";["findings","flow","engines","metrics","prov"].forEach(p=>$("#pane-"+p).innerHTML="");return; }
-  renderSummary(resp); renderTabs(resp); setStatus("");
+    $("#codeview").innerHTML="";$("#rtabs").innerHTML="";
+    ["findings","flow","engines","metrics","prov"].forEach(p=>$("#pane-"+p).innerHTML="");return; }
+  renderSummary(resp); renderCodeView(resp); renderTabs(resp); renderFindings(); setStatus("");
+}
+
+// --- code viewer with line numbers + finding markers + click-to-jump ------
+function renderCodeView(r){
+  const cv=$("#codeview");
+  if(!scanCode){ cv.innerHTML=""; return; }
+  const hitLines=new Set(r.findings.filter(f=>(f.artifact_uri==="snippet"||!f.artifact_uri)).map(f=>f.line));
+  const rows=scanCode.split("\n").map((ln,i)=>{
+    const n=i+1; const hit=hitLines.has(n)?"hit":"";
+    return `<tr id="L${n}" class="${hit}"><td class="ln">${n}</td><td>${esc(ln)||" "}</td></tr>`;
+  }).join("");
+  cv.innerHTML=`<div class="cv"><table>${rows}</table></div>`;
+}
+function jumpTo(line){
+  const row=$("#L"+line); if(!row) return;
+  row.scrollIntoView({block:"center",behavior:"smooth"});
+  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");
 }
 
 function renderSummary(r){
@@ -278,8 +331,10 @@ function renderSummary(r){
   $("#summary").innerHTML=html;
 }
 
+function taintFindings(r){return r.findings.filter(f=>(f.evidence||[]).some(e=>/taint|cross-file/i.test(e)));}
+
 function renderTabs(r){
-  const flow=r.findings.filter(f=>(f.evidence||[]).some(e=>/taint|cross-file/i.test(e)));
+  const flow=taintFindings(r);
   const tabs=[["findings","Findings",r.findings.length],["flow","Data flow",flow.length],
     ["engines","Engines",r.health.length],["metrics","Metrics",null],["prov","Provenance",null]];
   $("#rtabs").innerHTML=tabs.map((t,i)=>`<div class="rtab ${i===0?'active':''}" data-p="${t[0]}">${t[1]}${t[2]!=null?`<span class="cnt">${t[2]}</span>`:""}</div>`).join("");
@@ -288,12 +343,9 @@ function renderTabs(r){
     document.querySelectorAll(".pane").forEach(p=>p.classList.remove("active"));
     $("#pane-"+el.dataset.p).classList.add("active");});
 
-  // Findings
-  $("#pane-findings").innerHTML = r.findings.length ? r.findings.map(findingCard).join("")
-    : `<div class="empty"><div class="big">✅</div><div>No actionable findings.</div></div>`;
-  // Data flow
-  $("#pane-flow").innerHTML = flow.length ? flow.map(findingCard).join("")
-    : `<div class="empty">No cross-file / taint flows detected.</div>`;
+  // Data flow — render the taint path as a visual Entry→Mechanism→Impact chain
+  $("#pane-flow").innerHTML = flow.length ? flow.map(flowCard).join("")
+    : `<div class="empty">No cross-file / taint flows detected. Try "Upload folder / .zip" on a multi-file project.</div>`;
   // Engines (self-healing)
   $("#pane-engines").innerHTML = `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Each engine runs behind a resilience wrapper — a failure degrades that engine instead of crashing the audit.</div><div class="egrid">`+
     r.health.map(h=>`<div class="engine"><div class="n">${h.emoji} ${esc(h.name)}</div>
@@ -316,19 +368,85 @@ function renderTabs(r){
     hash-chained audit ledger (<code class="k">qtrace scan --ledger</code>) so the scan history is tamper-evident — verifiable offline, no blockchain required.</div>`;
 }
 
+// --- findings with triage (filter / hide-low / group / ignore) ------------
+function renderFindings(){
+  const r=lastResp; if(!r) return;
+  const all=r.findings;
+  const present=ORDER.filter(k=>all.some(f=>f.severity===k));
+  // toolbar
+  const chips=["All",...present].map(s=>`<span class="fchip ${filterState.sev===s?'active':''}" data-sev="${s}" style="${s!=='All'?`border-color:${SEVC[s]}`:''}">${s}</span>`).join("");
+  const nIgnored=all.filter(f=>ignored.has(f.fingerprint)).length;
+  let visible=all.filter(f=>!ignored.has(f.fingerprint))
+    .filter(f=>filterState.sev==="All"||f.severity===filterState.sev)
+    .filter(f=>!filterState.hideLow||f.confidence!=="Low");
+  const tools=`<div class="ftools">${chips}
+    <span class="toggle"><input type="checkbox" id="hideLow" ${filterState.hideLow?"checked":""}/> hide low-confidence</span>
+    <span class="toggle"><input type="checkbox" id="grp" ${filterState.group?"checked":""}/> group by file</span>
+    <span style="margin-left:auto;color:var(--muted);font-size:12px">${visible.length} shown${nIgnored?` · ${nIgnored} ignored <a class="disclose" id="showIgn">show</a>`:""}</span></div>`;
+
+  let body;
+  if(!visible.length){
+    body=`<div class="empty"><div class="big">${all.length?'🛈':'✅'}</div><div>${all.length?'No findings match the current filter.':'No actionable findings.'}</div></div>`;
+  } else if(filterState.group){
+    const byFile={}; visible.forEach(f=>{(byFile[f.artifact_uri||"snippet"]??=[]).push(f);});
+    body=Object.keys(byFile).sort().map(uri=>`<div class="path" style="margin:10px 0 6px">${esc(uri)} <span style="color:var(--muted)">(${byFile[uri].length})</span></div>`+byFile[uri].map(findingCard).join("")).join("");
+  } else {
+    body=visible.map(findingCard).join("");
+  }
+  $("#pane-findings").innerHTML=tools+body;
+
+  // wire toolbar
+  document.querySelectorAll(".fchip").forEach(c=>c.onclick=()=>{filterState.sev=c.dataset.sev;renderFindings();});
+  const hl=$("#hideLow"); if(hl) hl.onchange=()=>{filterState.hideLow=hl.checked;renderFindings();};
+  const g=$("#grp"); if(g) g.onchange=()=>{filterState.group=g.checked;renderFindings();};
+  const si=$("#showIgn"); if(si) si.onclick=()=>{ignored.clear();saveIgnored();renderFindings();};
+  wireCards();
+}
+
 function findingCard(f){
-  return `<div class="finding" style="border-left-color:${SEVC[f.severity]||'#888'}">
+  const ig=ignored.has(f.fingerprint);
+  const jump=(scanCode&&(f.artifact_uri==="snippet"||!f.artifact_uri))
+    ? `<button data-jump="${f.line}">↳ line ${f.line}</button>` : "";
+  const steps=(f.narrative||[]).map(s=>{
+    const lbl=(s.split("—")[0]||"").trim().toLowerCase();
+    const cls=["entry","mechanism","impact","evidence"].includes(lbl)?lbl:"entry";
+    return `<div class="step ${cls}"><span class="b">${esc((s.split("—")[0]||"").trim())}</span><span>${esc((s.split("—").slice(1).join("—")||"").trim())}</span></div>`;
+  }).join("");
+  return `<div class="finding ${ig?'ignored':''}" style="border-left-color:${SEVC[f.severity]||'#888'}">
     <h4>${esc(f.title)}
       <span class="chip sev-${f.severity}">${f.severity}</span>
       <span class="badge">CVSS ${f.cvss}</span>
       <a class="badge" href="${f.cwe_uri}" target="_blank" rel="noopener">${f.cwe}</a>
       <span class="conf">conf <b>${f.confidence}</b></span>
       <span class="path">${esc(f.artifact_uri)}:${f.line}</span>
+      <span class="fbtns">${jump}<button data-ignore="${f.fingerprint}">${ig?'Un-ignore':'Ignore'}</button></span>
     </h4>
     <p>${esc(f.description)}</p>
     ${f.evidence&&f.evidence.length?`<div class="ev">↳ ${esc(f.evidence.join("\n↳ "))}</div>`:""}
     <div class="rem">💡 ${esc(f.remediation)}</div>
+    ${steps?`<div class="disclose" data-story>▸ Attack story (deterministic, no-LLM)</div><div class="story">${steps}</div>`:""}
   </div>`;
+}
+
+function flowCard(f){
+  const steps=f.narrative||[];
+  const nodes=steps.filter(s=>!/^Evidence/i.test(s)).map(s=>`<div class="flownode">${esc(s)}</div>`).join('<span class="flowarrow">→</span>');
+  return `<div class="finding" style="border-left-color:${SEVC[f.severity]||'#888'}">
+    <h4>${esc(f.title)} <span class="chip sev-${f.severity}">${f.severity}</span>
+      <a class="badge" href="${f.cwe_uri}" target="_blank" rel="noopener">${f.cwe}</a>
+      <span class="path">${esc(f.artifact_uri)}:${f.line}</span></h4>
+    <div class="flowchain">${nodes}</div>
+    ${f.evidence&&f.evidence.length?`<div class="ev">↳ ${esc(f.evidence.join("\n↳ "))}</div>`:""}
+  </div>`;
+}
+
+function wireCards(){
+  document.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>jumpTo(+b.dataset.jump));
+  document.querySelectorAll("[data-ignore]").forEach(b=>b.onclick=()=>{
+    const fp=b.dataset.ignore; ignored.has(fp)?ignored.delete(fp):ignored.add(fp); saveIgnored(); renderFindings();});
+  document.querySelectorAll("[data-story]").forEach(d=>d.onclick=()=>{
+    const s=d.nextElementSibling; s.classList.toggle("open");
+    d.textContent=(s.classList.contains("open")?"▾":"▸")+" Attack story (deterministic, no-LLM)";});
 }
 
 // init
