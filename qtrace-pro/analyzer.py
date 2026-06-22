@@ -295,6 +295,12 @@ def _safe_classic(code: str):
     return scan_classic(code)
 
 
+@resilient(fallback=list, engine="secrets")
+def _safe_secrets(code: str, path: str = ""):
+    from secrets_scanner import scan_secrets
+    return scan_secrets(code, path)
+
+
 @resilient(fallback=lambda: (0.0, {}), engine="quantum")
 def _safe_quantum(pattern: str):
     if not _QUANTUM_OK:
@@ -347,8 +353,8 @@ _CACHE: "Dict[str, AuditResult]" = {}
 _CACHE_MAX = 64
 
 
-def _cache_key(code: str, use_symbolic: bool) -> str:
-    return hashlib.sha256(f"{use_symbolic}|{code}".encode("utf-8", "replace")).hexdigest()
+def _cache_key(code: str, use_symbolic: bool, path: str = "") -> str:
+    return hashlib.sha256(f"{use_symbolic}|{path}|{code}".encode("utf-8", "replace")).hexdigest()
 
 
 def clear_cache() -> None:
@@ -358,17 +364,19 @@ def clear_cache() -> None:
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
-def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> AuditResult:
+def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True,
+            path: str = "") -> AuditResult:
     """Run the full Q-Trace audit and return a structured :class:`AuditResult`.
 
     Never raises for ordinary analysis failures — engines degrade individually
     and the worst case is an empty-but-valid result. Only truly invalid input
-    (wrong type / oversized) raises :class:`ValidationError`.
+    (wrong type / oversized) raises :class:`ValidationError`. ``path`` (optional)
+    enables file-context heuristics (e.g. down-grading secrets in test files).
     """
     start = time.time()
     code = validate_code(code)  # may raise ValidationError (caller handles)
 
-    key = _cache_key(code, use_symbolic)
+    key = _cache_key(code, use_symbolic, path)
     if use_cache and key in _CACHE:
         cached = _CACHE[key]
         cached.cache_hit = True
@@ -389,6 +397,7 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
                     EngineState.HEALTHY if _OBF_OK else EngineState.UNAVAILABLE)
     health.register("classic_rules",
                     EngineState.HEALTHY if _CLASSIC_OK else EngineState.UNAVAILABLE)
+    health.register("secrets", EngineState.HEALTHY)
 
     patterns = _safe_detect_patterns(code) or []
     sinks = scan_sinks(code) or []
@@ -427,6 +436,9 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True) -> Aud
 
     # Classic OWASP/CWE vulnerability rules (SQLi, command injection, etc.).
     findings.extend(_safe_classic(code) or [])
+
+    # Secrets sprawl detection (offline, import-correlated, redacted).
+    findings.extend(_safe_secrets(code, path) or [])
 
     # Encoded/obfuscated-payload channel (entropy + fractal roughness).
     if obf is not None and obf.fires:

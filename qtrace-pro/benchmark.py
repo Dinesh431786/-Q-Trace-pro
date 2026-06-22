@@ -56,6 +56,9 @@ MALICIOUS = [
     ("path_traversal", "code", "def read(fn): return open(f'/data/{fn}').read()", "PATH_TRAVERSAL", "classic"),
     ("xxe", "code", "import xml.etree.ElementTree as ET\ndef p(f): return ET.parse(f)", "XXE", "classic"),
     ("insecure_random_token", "code", "import random\ntoken = random.randint(0, 999999)", "INSECURE_RANDOM", "classic"),
+    ("aws_secret_leak", "code", "import boto3\nKEY = 'AKIAZ3GULPBS2P7Q4XYZ'", "EXPOSED_SECRET", "secrets sprawl"),
+    ("private_key_leak", "code", "K = '-----BEGIN RSA PRIVATE KEY-----'", "EXPOSED_SECRET", "secrets sprawl"),
+    ("github_token_leak", "code", "TOKEN = 'ghp_016c8efb7a1d4f9e2b3c5a6d7e8f9012345a'", "EXPOSED_SECRET", "secrets sprawl"),
     ("typosquat_req", "manifest:requirements.txt", "requests\nrequsts\nnumpyy\n", "TYPOSQUAT_DEPENDENCY", "typosquat"),
     ("slopsquat_req", "manifest:requirements.txt", "python-requests\n", "TYPOSQUAT_DEPENDENCY", "slopsquat"),
     ("cross_file_exfil", "multifile", {"u.py": "import os\ndef collect():\n    return os.environ\n",
@@ -97,6 +100,8 @@ BENIGN = [
     ("env_to_config", "code", "import os\nDB = os.getenv('DB_URL', 'localhost')\nprint('connecting', DB)"),
     ("random_shuffle", "code", "import random\ndef deal(cards): random.shuffle(cards); return cards"),
     ("ignore_word_comment", "code", "# ignore leading/trailing whitespace when parsing\ndef strip(s): return s.strip()"),
+    ("secret_placeholder", "code", "API_KEY = 'YOUR_API_KEY_HERE'\nTOKEN = 'changeme'"),
+    ("secret_from_env", "code", "import os\nAPI_KEY = os.getenv('API_KEY')\nDB = os.environ['DB_URL']"),
 ]
 
 

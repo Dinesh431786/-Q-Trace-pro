@@ -127,7 +127,7 @@ def build_files_response(files: dict) -> dict:
     unsafe = False
     for path, code in files.items():
         try:
-            res = analyze(code, use_symbolic=True, use_cache=False)
+            res = analyze(code, use_symbolic=True, use_cache=False, path=path)
         except ValidationError:
             continue
         entropies.append(res.ast_entropy)

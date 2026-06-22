@@ -313,6 +313,17 @@ CATALOG: Dict[str, ThreatMeta] = {
                     "and detonates only in a real CI/developer environment.",
         remediation="Audit why execution depends on CI/cloud env vars; malware uses "
                     "this to evade dynamic analysis while targeting real pipelines."),
+    "EXPOSED_SECRET": ThreatMeta(
+        rule_id="QT.EXPOSED_SECRET", title="Exposed Secret / Hard-coded Credential",
+        cwe="CWE-798", cwe_name="Use of Hard-coded Credentials",
+        severity="High", base_confidence="High",
+        description="A live-looking credential (API key, token, private key, or "
+                    "high-entropy password) is embedded in source/config. Secrets "
+                    "sprawl is the #1 fastest-growing code-security problem "
+                    "(~29M leaked on GitHub in 2025, +34% YoY).",
+        remediation="Remove the secret, rotate/revoke it immediately, and load it "
+                    "from an environment variable or a secrets manager. Add the file "
+                    "to .gitignore and scrub it from git history."),
     "TYPOSQUAT_DEPENDENCY": ThreatMeta(
         rule_id="QT.TYPOSQUAT_DEPENDENCY", title="Typosquat / Slopsquat Dependency",
         cwe="CWE-829", cwe_name="Inclusion of Functionality from Untrusted Control Sphere",
@@ -353,14 +364,15 @@ class Finding:
     snippet: str = ""
     evidence: List[str] = field(default_factory=list)
     artifact_uri: str = ""   # source file path (set when scanning files via the CLI)
+    severity_override: str = ""  # per-finding severity (e.g. secrets in test files)
 
     @property
     def severity(self) -> str:
-        return self.meta.severity
+        return self.severity_override or self.meta.severity
 
     @property
     def cvss(self) -> float:
-        return SEVERITY_TO_CVSS.get(self.meta.severity, 0.0)
+        return SEVERITY_TO_CVSS.get(self.severity, 0.0)
 
     def fingerprint(self) -> str:
         """Stable hash for cross-run deduplication (rule + location + snippet)."""

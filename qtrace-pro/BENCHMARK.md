@@ -1,17 +1,17 @@
 # Q-Trace Pro — Measured Benchmark
 
-_Reproduce: `python benchmark.py`. Corpus: 28 malicious (faithful reconstructions of documented campaigns) + 32 realistic benign hard-negatives. Ran in 282 ms._
+_Reproduce: `python benchmark.py`. Corpus: 31 malicious (faithful reconstructions of documented campaigns) + 34 realistic benign hard-negatives. Ran in 145 ms._
 
 ## Headline metrics
 
 | Metric | Value |
 |---|---|
-| Detection recall (correct category) | **28/28 = 100.0%** |
-| CI-gate recall (any High+ alert on malware) | 22/28 = 78.6% |
-| **False-positive rate** (benign breaking `--fail-on High`) | **0/32 = 0.0%** |
+| Detection recall (correct category) | **31/31 = 100.0%** |
+| CI-gate recall (any High+ alert on malware) | 25/31 = 80.6% |
+| **False-positive rate** (benign breaking `--fail-on High`) | **0/34 = 0.0%** |
 | Precision | 100.0% |
-| F1 | 0.880 |
-| Confusion | TP=22 FN=6 FP=0 TN=32 |
+| F1 | 0.893 |
+| Confusion | TP=25 FN=6 FP=0 TN=34 |
 
 ## Per-sample
 
@@ -42,6 +42,9 @@ _Reproduce: `python benchmark.py`. Corpus: 28 malicious (faithful reconstruction
 | MAL | path_traversal | PATH_TRAVERSAL | ✅ | — |
 | MAL | xxe | XXE | ✅ | — |
 | MAL | insecure_random_token | INSECURE_RANDOM | ✅ | — |
+| MAL | aws_secret_leak | EXPOSED_SECRET | ✅ | 🚨 |
+| MAL | private_key_leak | EXPOSED_SECRET | ✅ | 🚨 |
+| MAL | github_token_leak | EXPOSED_SECRET | ✅ | 🚨 |
 | MAL | typosquat_req | TYPOSQUAT_DEPENDENCY | ✅ | 🚨 |
 | MAL | slopsquat_req | TYPOSQUAT_DEPENDENCY | ✅ | 🚨 |
 | MAL | cross_file_exfil | CREDENTIAL_EXFILTRATION | ✅ | 🚨 |
@@ -77,3 +80,5 @@ _Reproduce: `python benchmark.py`. Corpus: 28 malicious (faithful reconstruction
 | BEN | env_to_config | - | ✅ | — |
 | BEN | random_shuffle | - | ✅ | — |
 | BEN | ignore_word_comment | - | ✅ | — |
+| BEN | secret_placeholder | - | ✅ | — |
+| BEN | secret_from_env | - | ✅ | — |

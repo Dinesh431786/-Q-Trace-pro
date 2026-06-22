@@ -8,7 +8,7 @@ Catches the supply-chain & logic-bomb attacks ordinary linters miss — and the 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-77%2F77%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-83%2F83%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 [![Benchmark](https://img.shields.io/badge/benchmark-0%25%20FP%20%C2%B7%20100%25%20recall-success.svg)](qtrace-pro/BENCHMARK.md)
 [![SARIF 2.1.0](https://img.shields.io/badge/output-SARIF%202.1.0%20%C2%B7%20CWE-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-faq)
@@ -112,6 +112,7 @@ And the deterministic auto-fix (`python cli.py fix conf.py`):
 - 🤖 **AI-scanner evasion** (prompt injection in code) · `CWE-506`
 - 🌐 **Environment keying** (CI/cloud-gated payloads) · `CWE-506`
 - 📦 **Typosquat / slopsquat** dependencies · `CWE-829`
+- 🔑 **Exposed secrets / API keys** (AWS, GitHub, OpenAI, Stripe… — offline, import-correlated, redacted) · `CWE-798`
 - 🥷 Steganographic / anti-analysis tricks · `CWE-515/489`
 
 </td></tr></table>
@@ -130,6 +131,7 @@ See the per-rule severity tables in [`qtrace-pro/README.md`](qtrace-pro/README.m
 | 🧠 **No-LLM, prompt-injection-immune** | The detection core never calls an LLM, so it **can't be hallucinated or prompt-injected** — and it actively **flags** packages that try to fool AI scanners. |
 | 🔁 **Deterministic & explainable** | Same input → same output. Every finding ships a reproducible **Entry → Mechanism → Impact** "attack story" (no chatbot). |
 | 🔗 **Cross-file taint** | Follows a secret from one module into a network/exec sink in **another file** — through returns, imports, containers and object attributes. |
+| 🔑 **Secrets detection (offline)** | Finds AWS / GitHub / OpenAI / Stripe / private-key / high-entropy secrets with **provider patterns + import-graph correlation** — the private, no-cloud alternative to SaaS scanners for the #1 fastest-growing problem (secrets sprawl, +34% YoY). Secrets are always redacted. |
 | 🩹 **Verified auto-fix** | Emits a real **unified diff** for unambiguous issues; the patched code provably re-scans clean. Judgement calls are left to you. |
 | 🧾 **Tamper-evident audit trail** | Append scans to a SHA-256 **hash-chained ledger** (optional HMAC signing) — integrity you can verify offline. Not a blockchain. |
 | 🩺 **Self-healing & fast** | Each engine runs behind a resilience wrapper (degrade, don't crash); a custom pure-NumPy core keeps a typical scan in **tens of milliseconds**. |
@@ -138,13 +140,13 @@ See the per-rule severity tables in [`qtrace-pro/README.md`](qtrace-pro/README.m
 
 ## 📊 Measured benchmark
 
-Reproducible — run `python benchmark.py` (writes [`BENCHMARK.md`](qtrace-pro/BENCHMARK.md)) over **28 malicious** samples (faithful reconstructions of documented 2024–26 campaigns) and **32 realistic benign hard-negatives** (the code that trips other tools):
+Reproducible — run `python benchmark.py` (writes [`BENCHMARK.md`](qtrace-pro/BENCHMARK.md)) over **31 malicious** samples (faithful reconstructions of documented 2024–26 campaigns) and **34 realistic benign hard-negatives** (the code that trips other tools):
 
 <div align="center">
 
 | Detection recall | False-positive rate | Precision |
 |:---:|:---:|:---:|
-| **100%** (28/28 category-correct) | **0.0%** (0/32 break the gate) | **100%** · F1 0.88 |
+| **100%** (31/31 category-correct) | **0.0%** (0/34 break the gate) | **100%** · F1 0.89 |
 
 </div>
 
@@ -160,6 +162,7 @@ Reproducible — run `python benchmark.py` (writes [`BENCHMARK.md`](qtrace-pro/B
 | Logic bombs / obfuscated / install-hooks | ❌ | ⚠️ partial | ⚠️ | ✅ |
 | Cross-file taint | ❌ | 💲 paid | ✅ | ✅ (narrow) |
 | Typosquat / slopsquat deps | ❌ | ❌ | ⚠️ | ✅ |
+| Secrets detection (offline, no cloud) | ❌ | ⚠️ | 💲 cloud | ✅ |
 | Deterministic / reproducible | ✅ | ✅ | ❌ | ✅ |
 | Runs fully offline (no cloud) | ✅ | ✅ | ❌ usually | ✅ |
 | Immune to prompt-injection | ✅ | ✅ | ❌ | ✅ (+detects it) |

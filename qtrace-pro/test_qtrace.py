@@ -368,6 +368,43 @@ def test_webapp_response_includes_fixes():
     assert r["fixes"]["count"] >= 1 and r["fixes"]["diff"]
 
 
+# --- secrets sprawl detection (the #1 fastest-growing problem) -------------- #
+def test_secret_aws_key_critical_with_import():
+    from secrets_scanner import scan_secrets
+    fs = scan_secrets("import boto3\nk = 'AKIAZ3GULPBS2P7Q4XYZ'\n", "app.py")
+    assert fs and fs[0].pattern == "EXPOSED_SECRET" and fs[0].severity == "Critical"
+
+
+def test_secret_github_and_private_key():
+    from secrets_scanner import scan_secrets
+    assert scan_secrets("t='ghp_016c8efb7a1d4f9e2b3c5a6d7e8f9012345a'\n")
+    assert scan_secrets("k='-----BEGIN RSA PRIVATE KEY-----'\n")[0].severity == "Critical"
+
+
+def test_secret_is_redacted_not_stored():
+    from secrets_scanner import scan_secrets
+    raw = "ghp_016c8efb7a1d4f9e2b3c5a6d7e8f9012345a"
+    f = scan_secrets(f"t='{raw}'\n")[0]
+    assert raw not in " ".join(f.evidence) and f.snippet == ""  # never echoes the secret
+
+
+def test_secret_placeholder_and_envvar_are_clean():
+    from secrets_scanner import scan_secrets
+    assert scan_secrets("API_KEY = 'YOUR_API_KEY_HERE'\n") == []
+    assert scan_secrets("import os\nAPI_KEY = os.getenv('API_KEY')\n") == []
+
+
+def test_secret_in_test_file_downgraded():
+    from secrets_scanner import scan_secrets
+    fs = scan_secrets("t='ghp_016c8efb7a1d4f9e2b3c5a6d7e8f9012345a'\n", "tests/test_x.py")
+    assert fs and fs[0].severity == "Low"
+
+
+def test_secret_flows_through_analyzer():
+    res = analyze("import boto3\nKEY = 'AKIAZ3GULPBS2P7Q4XYZ'")
+    assert any(f.pattern == "EXPOSED_SECRET" for f in res.findings)
+
+
 # --- measured benchmark (regression guard on the headline numbers) --------- #
 def test_benchmark_recall_and_false_positive_rate():
     import benchmark as B

@@ -82,9 +82,10 @@ def _scan_path(path, use_symbolic):
             with open(fp, "r", encoding="utf-8", errors="replace") as fh:
                 code = fh.read()
             corpus[rel] = code
-            res = analyze(code, use_symbolic=use_symbolic, use_cache=False)
+            res = analyze(code, use_symbolic=use_symbolic, use_cache=False, path=rel)
             for f in res.findings:
-                f.artifact_uri = rel
+                if not getattr(f, "artifact_uri", ""):
+                    f.artifact_uri = rel
             all_findings.extend(res.findings)
         except ValidationError as e:
             errors += 1
@@ -111,6 +112,24 @@ def _scan_path(path, use_symbolic):
                 pass
     except Exception as e:
         print(_c("0;33", f"dependency audit skipped: {e}"), file=sys.stderr)
+
+    # Secrets in config/text files (.env, .yaml, .json, …) — not just .py.
+    try:
+        from secrets_scanner import scan_secrets, is_scannable_config
+        if os.path.isdir(path):
+            for root, dirs, fnames in os.walk(path):
+                dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+                for fn in fnames:
+                    fpath = os.path.join(root, fn)
+                    if fpath.endswith(".py") or not is_scannable_config(fpath):
+                        continue
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
+                            all_findings.extend(scan_secrets(fh.read(), os.path.relpath(fpath)))
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(_c("0;33", f"secret scan (configs) skipped: {e}"), file=sys.stderr)
 
     return all_findings, files, errors
 

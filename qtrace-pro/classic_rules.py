@@ -30,6 +30,9 @@ from findings import Finding, get_meta
 _SECRET_NAME = re.compile(
     r"(?i)(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|auth[_-]?token|"
     r"token|credential|private[_-]?key|client[_-]?secret)")
+_PLACEHOLDER_VALUE = re.compile(
+    r"(?i)(your[_-]?|example|change[_-]?me|change[_-]?this|placeholder|dummy|redacted|"
+    r"insert[_-]?|<[^>]*>|xxx+|\.\.\.|_here\b|here$|sample|fake|foobar|todo)")
 _SECRETish_VALUE_OK = {"", "changeme", "password", "xxx", "none", "example",
                        "your-password", "test", "todo", "placeholder"}
 _RANDOM_SECRET_NAME = re.compile(r"(?i)(token|secret|key|password|nonce|otp|salt|session)")
@@ -218,12 +221,15 @@ class ClassicRuleVisitor(ast.NodeVisitor):
         # Light taint: remember variables that hold env vars / credential data.
         if self._is_secret_source(node.value):
             self._secret_vars.update(names)
-        # Hard-coded credentials (CWE-798)
+        # Hard-coded credentials (CWE-798). The precise provider/entropy detection
+        # is in secrets_scanner; here we only flag the obvious name=literal case,
+        # skipping placeholders so example/template values don't false-positive.
         if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             val = node.value.value
             for nm in names:
                 if _SECRET_NAME.search(nm) and len(val) >= 6 \
                         and val.strip().lower() not in _SECRETish_VALUE_OK \
+                        and not _PLACEHOLDER_VALUE.search(val) \
                         and not val.startswith("${") and "os.environ" not in val:
                     self._add("HARDCODED_SECRET", node, "Medium",
                               f"`{nm}` assigned a hard-coded string literal")

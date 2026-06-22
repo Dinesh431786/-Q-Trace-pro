@@ -54,6 +54,7 @@ python webapp.py        # web UI on http://127.0.0.1:8000  (stdlib only)
 - **`cli.py`** — command-line scanner (file/dir → text/JSON/SARIF, CI exit codes).
 - **`taint.py`** — cross-file interprocedural taint (secret source → sink across modules).
 - **`dependency_audit.py`** — typosquat / slopsquat / dependency-confusion checks on manifests.
+- **`secrets_scanner.py`** — offline secrets detection (provider patterns + import correlation, redacted).
 - **`autofix.py`** — deterministic, no-LLM auto-fix (unified diff for unambiguous issues).
 - **`ledger.py`** — tamper-evident, hash-chained audit ledger (optional HMAC signing).
 - **`classic_rules.py`** — classic OWASP/CWE SAST rules (SQLi, command injection, etc.).
@@ -86,6 +87,7 @@ file (CWE-377), debug mode (CWE-489), cleartext transmission (CWE-319).
 | Chained / stateful bomb | CWE-511 | High |
 | Cross-function embedded malicious code | CWE-506 | Critical |
 | Credential / data exfiltration (env / secret → network) | CWE-200 | Critical |
+| Exposed secret / API key (offline, import-correlated) | CWE-798 | High–Critical |
 | AI-scanner evasion (prompt injection in code) | CWE-506 | High |
 | Environment-keyed trigger (CI/cloud-gated payload) | CWE-506 | High |
 | Typosquat / slopsquat dependency (requirements/pyproject) | CWE-829 | High |
@@ -107,7 +109,7 @@ python cli.py fix app.py --write                       # apply deterministic aut
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 77 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 83 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # measured benchmark (recall + false-positive rate) -> BENCHMARK.md
 ```
