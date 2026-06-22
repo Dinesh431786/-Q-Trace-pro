@@ -90,6 +90,18 @@
     display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px}
   @keyframes spin{to{transform:rotate(360deg)}}
   code.k{background:var(--panel3);padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:12px}
+  /* visual summary: donut + gauge + metrics */
+  .vizrow{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;margin-bottom:6px}
+  .vizcard{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;gap:14px;align-items:center}
+  .vizcard .cap{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .donut-legend span{display:block;font-size:12px;color:var(--muted);margin:2px 0}
+  .donut-legend b{color:var(--txt)}
+  .metrics{flex:1;min-width:240px}
+  /* attack-path graph */
+  .graph{background:#070b11;border:1px solid var(--border);border-radius:10px;padding:8px;overflow-x:auto;margin:10px 0 4px}
+  .gnode rect{rx:8}
+  .gflow{stroke-dasharray:5 4;animation:dash 0.8s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-18}}
   /* code viewer */
   .cv{background:#070b11;border:1px solid var(--border);border-radius:9px;overflow:auto;max-height:300px;margin:14px 0 4px}
   .cv table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px}
@@ -314,30 +326,50 @@ function jumpTo(line){
   row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");
 }
 
+function severityDonut(by, total){
+  const r=34, c=2*Math.PI*r; let off=0;
+  const segs=ORDER.filter(k=>by[k]).map(k=>{
+    const frac=by[k]/total, len=frac*c;
+    const seg=`<circle r="${r}" cx="46" cy="46" fill="none" stroke="${cssv(SEVC[k])}" stroke-width="14"
+      stroke-dasharray="${len.toFixed(2)} ${(c-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"
+      transform="rotate(-90 46 46)"/>`; off+=len; return seg;}).join("");
+  const legend=ORDER.filter(k=>by[k]).map(k=>`<span><span class="dot" style="background:${SEVC[k]}"></span><b>${by[k]}</b> ${k}</span>`).join("");
+  return `<div class="vizcard"><svg width="92" height="92" viewBox="0 0 92 92">${segs}
+    <text x="46" y="44" text-anchor="middle" font-size="22" font-weight="800" fill="#e6edf3">${total}</text>
+    <text x="46" y="60" text-anchor="middle" font-size="9" fill="#8b98a9">FINDINGS</text></svg>
+    <div class="donut-legend">${legend||'<span>clean</span>'}</div></div>`;
+}
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v.replace('var(','').replace(')',''))||v;}
+function riskGauge(cvss){
+  const f=Math.max(0,Math.min(1,cvss/10)); const ang=Math.PI*(1-f);
+  const x=46+40*Math.cos(ang), y=50-40*Math.sin(ang);
+  const col=cvss>=9?'#b3122a':cvss>=7?'#e5484d':cvss>=4?'#e2a83b':cvss>0?'#2ea043':'#2ea043';
+  const big=f>0.5?1:0;
+  const arc=`M 6 50 A 40 40 0 ${big} 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
+  return `<div class="vizcard"><svg width="100" height="62" viewBox="0 0 92 58">
+    <path d="M 6 50 A 40 40 0 1 1 86 50" fill="none" stroke="#222b3a" stroke-width="9" stroke-linecap="round"/>
+    <path d="${arc}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round"/>
+    <text x="46" y="42" text-anchor="middle" font-size="18" font-weight="800" fill="${col}">${cvss.toFixed(1)}</text></svg>
+    <div><div class="cap">Risk (max CVSS)</div><div style="font-size:13px;font-weight:700;color:${col}">${cvss>=9?'Critical':cvss>=7?'High':cvss>=4?'Medium':cvss>0?'Low':'None'}</div></div></div>`;
+}
 function renderSummary(r){
-  const s=r.summary;
-  let html=`<div class="metrics">
-    <div class="metric"><div class="v">${s.total}</div><div class="l">Findings</div></div>
-    <div class="metric"><div class="v" style="color:${s.max_cvss>=9?'var(--crit)':s.max_cvss>=7?'var(--high)':'var(--txt)'}">${s.max_cvss.toFixed(1)}</div><div class="l">Max CVSS</div></div>
-    <div class="metric"><div class="v">${s.files_scanned}</div><div class="l">Files</div></div>
-    <div class="metric"><div class="v">${s.ast_entropy}</div><div class="l">AST Entropy</div></div>
-    <div class="metric"><div class="v">${s.duration_ms}<span style="font-size:12px"> ms</span></div><div class="l">Scan time</div></div>
-  </div>`;
-  const total=s.total||1;
-  const bar=ORDER.filter(k=>s.by_severity[k]).map(k=>`<i style="background:${SEVC[k]};width:${(s.by_severity[k]/total*100)}%"></i>`).join("");
-  if(s.total){
-    html+=`<div class="sevbar">${bar}</div><div class="sevlegend">`+
-      ORDER.filter(k=>s.by_severity[k]).map(k=>`<span><span class="dot" style="background:${SEVC[k]}"></span><b>${s.by_severity[k]}</b> ${k}</span>`).join("")+`</div>`;
-  }
-  $("#summary").innerHTML=html;
+  const s=r.summary, total=s.total||0;
+  const metrics=`<div class="vizcard metrics"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%">
+    <div><div class="cap">Files</div><div class="v" style="font-size:20px;font-weight:800">${s.files_scanned}</div></div>
+    <div><div class="cap">AST entropy</div><div class="v" style="font-size:20px;font-weight:800">${s.ast_entropy}</div></div>
+    <div><div class="cap">Scan time</div><div class="v" style="font-size:20px;font-weight:800">${s.duration_ms}<span style="font-size:11px"> ms</span></div></div>
+    <div style="grid-column:1/4;font-size:12px;color:var(--muted)">${total?`${total} finding(s) · `:''}symbolic: <b style="color:${r.symbolic_unsafe?'var(--high)':'var(--ok)'}">${esc(r.symbolic||'N/A')}</b></div>
+  </div></div>`;
+  $("#summary").innerHTML=`<div class="vizrow">${severityDonut(s.by_severity,total||1)}${riskGauge(s.max_cvss)}${metrics}</div>`;
 }
 
 function taintFindings(r){return r.findings.filter(f=>(f.evidence||[]).some(e=>/taint|cross-file/i.test(e)));}
 
 function renderTabs(r){
-  const flow=taintFindings(r);
+  const taint=taintFindings(r);
+  const graphable=r.findings.filter(f=>(f.narrative||[]).length>=2);
   const nfix=(r.fixes&&r.fixes.count)||0;
-  const tabs=[["findings","Findings",r.findings.length],["flow","Data flow",flow.length],
+  const tabs=[["findings","Findings",r.findings.length],["flow","Attack paths",graphable.length],
     ["fixes","Auto-fix",nfix],["engines","Engines",r.health.length],["metrics","Metrics",null],["prov","Provenance",null]];
   $("#rtabs").innerHTML=tabs.map((t,i)=>`<div class="rtab ${i===0?'active':''}" data-p="${t[0]}">${t[1]}${t[2]!=null?`<span class="cnt">${t[2]}</span>`:""}</div>`).join("");
   document.querySelectorAll(".rtab").forEach(el=>el.onclick=()=>{
@@ -345,9 +377,10 @@ function renderTabs(r){
     document.querySelectorAll(".pane").forEach(p=>p.classList.remove("active"));
     $("#pane-"+el.dataset.p).classList.add("active");});
 
-  // Data flow — render the taint path as a visual Entry→Mechanism→Impact chain
-  $("#pane-flow").innerHTML = flow.length ? flow.map(flowCard).join("")
-    : `<div class="empty">No cross-file / taint flows detected. Try "Upload folder / .zip" on a multi-file project.</div>`;
+  // Attack paths — render each finding's Source→Propagation→Sink as a visual graph
+  $("#pane-flow").innerHTML = graphable.length
+    ? `<div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">Deterministic Source → Propagation → Sink graph for each finding (cross-file flows show the inter-module hop).</div>`+graphable.map(flowCard).join("")
+    : `<div class="empty">No attack paths to graph.</div>`;
   // Engines (self-healing)
   $("#pane-engines").innerHTML = `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Each engine runs behind a resilience wrapper — a failure degrades that engine instead of crashing the audit.</div><div class="egrid">`+
     r.health.map(h=>`<div class="engine"><div class="n">${h.emoji} ${esc(h.name)}</div>
@@ -448,14 +481,40 @@ function findingCard(f){
   </div>`;
 }
 
+function wrapText(t, max){
+  const words=(t||"").split(/\s+/); const lines=[]; let cur="";
+  for(const w of words){ if((cur+" "+w).trim().length>max){lines.push(cur.trim());cur=w;} else cur+=" "+w; }
+  if(cur.trim()) lines.push(cur.trim());
+  return lines.slice(0,3);
+}
+function attackGraph(f, sevColor){
+  const steps=(f.narrative||[]).filter(s=>!/^Evidence/i.test(s));
+  const labels=["SOURCE","PROPAGATION","SINK"];
+  const cols=["#3b82f6","#e2a83b",sevColor];
+  const NW=210, GAP=46, H=92, n=Math.min(steps.length,3);
+  const W=n*NW+(n-1)*GAP+16;
+  let svg=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMinYMid meet" style="min-width:${W}px;max-width:100%">
+    <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#4f9cf9"/></marker></defs>`;
+  for(let i=0;i<n;i++){
+    const x=8+i*(NW+GAP), txt=(steps[i].split("—").slice(1).join("—")||steps[i]).trim();
+    const lines=wrapText(txt,34);
+    svg+=`<g class="gnode"><rect x="${x}" y="8" width="${NW}" height="${H-16}" rx="9" fill="#1a212e" stroke="${cols[i]}" stroke-width="1.5"/>
+      <rect x="${x}" y="8" width="5" height="${H-16}" rx="2" fill="${cols[i]}"/>
+      <text x="${x+16}" y="26" font-size="9.5" font-weight="800" fill="${cols[i]}" letter-spacing="0.6">${labels[i]}</text>`;
+    lines.forEach((ln,li)=>{svg+=`<text x="${x+16}" y="${42+li*15}" font-size="11.5" fill="#c9d4e0">${esc(ln)}</text>`;});
+    svg+=`</g>`;
+    if(i<n-1){const x2=x+NW; svg+=`<line class="gflow" x1="${x2+4}" y1="${H/2}" x2="${x2+GAP-6}" y2="${H/2}" stroke="#4f9cf9" stroke-width="2" marker-end="url(#ah)"/>`;}
+  }
+  return svg+`</svg>`;
+}
 function flowCard(f){
-  const steps=f.narrative||[];
-  const nodes=steps.filter(s=>!/^Evidence/i.test(s)).map(s=>`<div class="flownode">${esc(s)}</div>`).join('<span class="flowarrow">→</span>');
-  return `<div class="finding" style="border-left-color:${SEVC[f.severity]||'#888'}">
+  const sev=SEVC[f.severity]||'#888';
+  return `<div class="finding" style="border-left-color:${sev}">
     <h4>${esc(f.title)} <span class="chip sev-${f.severity}">${f.severity}</span>
       <a class="badge" href="${f.cwe_uri}" target="_blank" rel="noopener">${f.cwe}</a>
       <span class="path">${esc(f.artifact_uri)}:${f.line}</span></h4>
-    <div class="flowchain">${nodes}</div>
+    <div class="graph">${attackGraph(f, sev)}</div>
     ${f.evidence&&f.evidence.length?`<div class="ev">↳ ${esc(f.evidence.join("\n↳ "))}</div>`:""}
   </div>`;
 }
