@@ -51,28 +51,40 @@ python webapp.py            # → http://127.0.0.1:8000
 
 ---
 
-## 👀 See it work
+## 👀 See it find what review misses
 
-Scanning a small project with a couple of planted issues:
+Q-Trace isn't impressive on a 2-line snippet where the bug is obvious — anyone
+sees that. The point is the **non-obvious** stuff, across a real project. Here's
+the built-in demo: a 7-file "analytics service" where every file looks normal on
+its own. One click (**▶ Try a realistic demo project** in the UI, or scan it from
+the CLI):
 
 ```text
-$ python cli.py scan ./app
-app.py
-  Critical CWE-200  Credential / Data Exfiltration       (conf High)    line 5
-           ↳ environment/secret data passed into an outbound network call
-  High     CWE-89   SQL Injection                        (conf High)    line 4
-           ↳ interpolated string passed to SQL execute()
-  High     CWE-502  Insecure Deserialization             (conf High)    line 7
-           ↳ untrusted deserialization via pickle.loads
-  Medium   CWE-327  Weak Hash Algorithm                  (conf Medium)  line 6
+$ qtrace scan ./analytics-service
+app/services/telemetry.py
+  Critical CWE-200  Credential / Data Exfiltration            line 7
+           ↳ cross-file taint: secret returned by config.load_runtime_context()
+             reaches network sink requests.post() here          ← invisible in any single file
+app/services/ratelimit.py
+  High     CWE-511  Probabilistic Logic Bomb                  line 10   ← buried in a "rate limiter"
+app/plugins/loader.py
+  Critical CWE-506  Encoded / Obfuscated Payload              line 1    ← base64 → exec "plugin"
+app/config/aws.py
+  Critical CWE-798  Exposed Secret / Hard-coded Credential    line 4
+           ↳ AWS key — Critical only because boto3 is imported beside it
+setup.py
+  Critical CWE-506  Install-Time / Import-Time Code Execution line 3    ← runs on `pip install`
 requirements.txt
-  High     CWE-829  Typosquat / Slopsquat Dependency     (conf High)    line 2
-           ↳ dependency 'requsts' is one character away from 'requests' — likely typosquat / AI-hallucinated name
+  High     CWE-829  Typosquat / Slopsquat Dependency          line 2    ← 'requsts' vs 'requests'
 
-Summary: 8 finding(s) — 1 Critical, 6 High, 1 Medium     (exit code 2)
+Summary: 9 finding(s) across 6 file(s) — 4 Critical, 5 High      (exit code 2)
 ```
 
-And the deterministic auto-fix (`python cli.py fix conf.py`):
+Every one of these is something a human reviewer (or a single-file linter) walks
+right past: a credential leak **split across three files**, a logic bomb hiding
+in plausible rate-limiting, a key whose severity depends on a nearby import.
+
+And the deterministic auto-fix (`qtrace fix conf.py`):
 
 ```diff
 --- a/conf.py
@@ -83,7 +95,6 @@ And the deterministic auto-fix (`python cli.py fix conf.py`):
 +cfg = yaml.safe_load(s)
 ```
 
----
 
 ## 🔬 What it catches
 

