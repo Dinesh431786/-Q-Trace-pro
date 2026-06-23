@@ -406,17 +406,19 @@ function renderTabs(r){
   $("#pane-engines").innerHTML = `<div style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Each engine runs behind a resilience wrapper — a failure degrades that engine instead of crashing the audit.</div><div class="egrid">`+
     r.health.map(h=>`<div class="engine"><div class="n">${h.emoji} ${esc(h.name)}</div>
       <div class="s">${esc(h.state)}${h.detail?" · "+esc(h.detail):""}${h.failures?` · ${h.failures} failure(s)`:""}</div></div>`).join("")+`</div>`;
-  // Metrics
+  // Metrics — core (drives detection) vs auxiliary quantum-inspired heuristics
   const p=r.physics||{};
-  const m=[["Symbolic reachability proof", r.symbolic],
-    ["Von Neumann / quantum discord", p.quantum_discord!=null?p.quantum_discord:"—"],
-    ["Landauer ratio (hidden exfiltration)", p.landauer_ratio!=null?p.landauer_ratio:"—"],
-    ["Least-action deviation (backdoor)", p.action_hamiltonian!=null?p.action_hamiltonian:"—"],
-    ["AST entropy (obfuscation)", r.summary.ast_entropy],
+  const core=[["Symbolic reachability proof", r.symbolic],
+    ["AST entropy (obfuscation signal)", r.summary.ast_entropy],
     ["Dangerous sinks located", (r.sinks||[]).length]];
-  $("#pane-metrics").innerHTML = m.map(x=>`<div class="mrow"><span>${esc(x[0])}</span><b>${esc(x[1])}</b></div>`).join("")
-    + ((r.sinks||[]).length?`<div style="margin-top:12px;font-size:12.5px;color:var(--muted)">Sinks: `+
-      r.sinks.map(s=>`<code class="k">${esc(s.name)}:${s.line}${s.guarded?" ⚠":""}</code>`).join(" ")+`</div>`:"");
+  const aux=[["Von Neumann / quantum discord", p.quantum_discord!=null?p.quantum_discord:"—"],
+    ["Landauer ratio", p.landauer_ratio!=null?p.landauer_ratio:"—"],
+    ["Least-action deviation", p.action_hamiltonian!=null?p.action_hamiltonian:"—"]];
+  $("#pane-metrics").innerHTML = core.map(x=>`<div class="mrow"><span>${esc(x[0])}</span><b>${esc(x[1])}</b></div>`).join("")
+    + ((r.sinks||[]).length?`<div style="margin:10px 0;font-size:12.5px;color:var(--muted)">Sinks: `+
+      r.sinks.map(s=>`<code class="k">${esc(s.name)}:${s.line}${s.guarded?" ⚠":""}</code>`).join(" ")+`</div>`:"")
+    + `<div style="margin-top:14px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Quantum-inspired heuristics (auxiliary — do <b>not</b> drive detection)</div>`
+    + aux.map(x=>`<div class="mrow" style="opacity:.7"><span>${esc(x[0])}</span><b>${esc(x[1])}</b></div>`).join("");
   // Provenance
   const pv=r.provenance||{};
   $("#pane-prov").innerHTML = `<div class="mrow"><span>Report SHA-256 (tamper-evident)</span><b style="font-size:11.5px">${esc((pv.report_sha256||"").slice(0,32))}…</b></div>

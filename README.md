@@ -8,7 +8,7 @@ Catches the supply-chain & logic-bomb attacks ordinary linters miss — and the 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-83%2F83%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Tests](https://img.shields.io/badge/tests-84%2F84%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
 [![Benchmark](https://img.shields.io/badge/benchmark-0%25%20FP%20%C2%B7%20100%25%20recall-success.svg)](qtrace-pro/BENCHMARK.md)
 [![SARIF 2.1.0](https://img.shields.io/badge/output-SARIF%202.1.0%20%C2%B7%20CWE-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-faq)
@@ -68,7 +68,7 @@ app/services/telemetry.py
 app/services/ratelimit.py
   High     CWE-511  Probabilistic Logic Bomb                  line 10   ← buried in a "rate limiter"
 app/plugins/loader.py
-  Critical CWE-506  Encoded / Obfuscated Payload              line 1    ← base64 → exec "plugin"
+  Critical CWE-506  Encoded / Obfuscated Payload              line 7    ← base64 → exec "plugin"
 app/config/aws.py
   Critical CWE-798  Exposed Secret / Hard-coded Credential    line 4
            ↳ AWS key — Critical only because boto3 is imported beside it
@@ -244,6 +244,7 @@ python cli.py verify-ledger audit.ledger                 # verify the chain (exi
 - **Python source only.** It doesn't inspect compiled `.pyc`, binary wheels, or non-code assets (e.g. payloads hidden in WAV/PNG).
 - **Benchmark is representative, not exhaustive.** The malicious corpus is *faithful reconstructions* of public incidents, not the original malware binaries.
 - **Not a dependency-CVE scanner.** Pair it with `pip-audit`/OSV for known-CVE coverage.
+- **Context-aware on real repos.** Findings in `tests/`, `examples/`, `benchmark/`, fixtures and docs drop to *Low confidence* so they never break your CI gate (every real project has these). On a realistic clean Flask app, Q-Trace reports **0 findings**. *(Scanning a security scanner's own source is the exception — it literally contains the attack patterns it detects.)*
 
 ---
 

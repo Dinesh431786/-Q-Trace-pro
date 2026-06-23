@@ -1,6 +1,11 @@
-# ⚛️ Q-Trace Pro — The Private Quantum Auditor
+# ⚛️ Q-Trace Pro — Deterministic, Local Python Security Scanner
 
-**Local-native, air-gapped Python source-code security auditor** that hunts the
+> **On the name:** "Q-Trace" is just the brand (the ⚛ is a logo mark). One *auxiliary*
+> risk-scoring channel is **quantum-*inspired*** (a tiny pure-NumPy state-vector
+> sim + information entropy) — it does **not** drive detection and needs no quantum
+> hardware. The real work is taint, OWASP/CWE rules, secrets, and obfuscation. No hype.
+
+**Local-native, air-gapped Python source-code security scanner** that hunts the
 threats ordinary SAST tools miss: probabilistic logic bombs, chained/stateful
 triggers, cross-function backdoors, covert/steganographic channels, and
 anti-analysis evasion — the exact techniques seen in 2024–2026 PyPI supply-chain
@@ -109,7 +114,7 @@ python cli.py fix app.py --write                       # apply deterministic aut
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 83 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 84 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # measured benchmark (recall + false-positive rate) -> BENCHMARK.md
 ```

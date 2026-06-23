@@ -123,6 +123,45 @@ def _suspicious_literals(tree: ast.AST):
             yield _shannon(s), getattr(n, "lineno", 1), kind
 
 
+_DECODE_FUNCS = {"b64decode", "b16decode", "b32decode", "a85decode", "b85decode",
+                 "unhexlify", "decompress", "frombuffer", "bytes", "bytearray", "decode"}
+
+
+def _exec_context(tree: ast.AST):
+    """AST-precise context: a *real* exec/eval-of-decoded-data call, or an XOR
+    byte-transform. Substring matching (the old approach) flagged any file that
+    merely mentioned ``exec(`` — including a security tool's own rules.
+    """
+    has_decode_exec = False
+    has_xor = False
+    line = None
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call):
+            f = n.func
+            fn = f.id if isinstance(f, ast.Name) else (f.attr if isinstance(f, ast.Attribute) else "")
+            if fn in ("exec", "eval", "compile"):
+                for sub in ast.walk(n):
+                    if sub is n or not isinstance(sub, ast.Call):
+                        continue
+                    sf = sub.func
+                    sfn = sf.id if isinstance(sf, ast.Name) else (sf.attr if isinstance(sf, ast.Attribute) else "")
+                    if sfn in _DECODE_FUNCS:
+                        has_decode_exec = True
+                        line = getattr(n, "lineno", line)
+                        break
+            elif fn in ("bytes", "bytearray"):
+                for sub in ast.walk(n):
+                    if isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.BitXor):
+                        has_xor = True
+                        line = line or getattr(n, "lineno", None)
+        elif isinstance(n, (ast.ListComp, ast.GeneratorExp, ast.SetComp)):
+            for sub in ast.walk(n):
+                if isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.BitXor):
+                    has_xor = True
+                    line = line or getattr(n, "lineno", None)
+    return has_decode_exec, has_xor, line
+
+
 def analyze_obfuscation(code: str) -> ObfuscationResult:
     """Score how strongly ``code`` looks like an encoded/obfuscated payload."""
     evidence: List[str] = []
@@ -141,20 +180,24 @@ def analyze_obfuscation(code: str) -> ObfuscationResult:
                     lit_score, line = contrib, lit_line
                     evidence.append(f"high-entropy {kind} ({entropy:.1f} bits/char) @ line {lit_line}")
 
-    low = code.lower()
+    has_decode_exec, has_xor, ctx_line = _exec_context(tree) if tree is not None else (False, False, None)
     ctx = 0.0
-    if any(k in low for k in ("exec(", "eval(", "b64decode", "frombuffer", "marshal.loads")):
+    if has_decode_exec:
         ctx = max(ctx, 0.6)
-        evidence.append("dynamic-execution/decoding sink present")
-    if "^" in code and ("bytes(" in low or "chr(" in low or "for " in low):
+        evidence.append("exec/eval of decoded data")
+    if has_xor:
         ctx = max(ctx, 0.7)
         evidence.append("XOR byte-transform loop")
 
     fd = higuchi_fractal_dimension(_byte_entropy_signal(code))
     fd_bonus = 0.1 * max(0.0, fd - 1.25)  # roughness tie-breaker
 
-    if lit_score > 0 or ctx > 0:
+    # Fire only on a *real* signal: a high-entropy literal, an exec-of-decoded
+    # payload, or an XOR transform — never on substring context or roughness alone.
+    if lit_score > 0 or has_decode_exec or has_xor:
         score = min(1.0, lit_score + ctx + fd_bonus)
+        if line == 1 and ctx_line:
+            line = ctx_line
     else:
         score = min(0.3, fd_bonus)  # roughness alone is never decisive
 

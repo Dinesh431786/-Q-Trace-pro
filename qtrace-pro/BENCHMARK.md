@@ -1,6 +1,6 @@
 # Q-Trace Pro — Measured Benchmark
 
-_Reproduce: `python benchmark.py`. Corpus: 31 malicious (faithful reconstructions of documented campaigns) + 34 realistic benign hard-negatives. Ran in 107 ms._
+_Reproduce: `python benchmark.py`. Corpus: 31 malicious (faithful reconstructions of documented campaigns) + 34 realistic benign hard-negatives. Ran in 172 ms._
 
 ## Headline metrics
 

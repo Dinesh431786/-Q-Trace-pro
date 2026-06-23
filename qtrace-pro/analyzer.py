@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -353,6 +354,13 @@ _CACHE: "Dict[str, AuditResult]" = {}
 _CACHE_MAX = 64
 
 
+# Paths whose findings are down-graded (test fixtures / examples are intentional).
+_TEST_CONTEXT = re.compile(
+    r"(?i)(^|/)(tests?|__tests__|testdata|fixtures?|mocks?|examples?|samples?|"
+    r"demos?|benchmark[s]?|conftest|docs?)(/|$|\.)|(^|/)test_[^/]*\.py$|"
+    r"_test\.py$|\.spec\.|/conftest\.py$")
+
+
 def _cache_key(code: str, use_symbolic: bool, path: str = "") -> str:
     return hashlib.sha256(f"{use_symbolic}|{path}|{code}".encode("utf-8", "replace")).hexdigest()
 
@@ -448,6 +456,16 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True,
             risk_score=float(obf.score), line=obf.line, column=1,
             snippet=_snippet_at(code, obf.line), evidence=obf.evidence,
         ))
+
+    # Context-awareness for REAL repos: a vulnerability in a test fixture,
+    # example, benchmark, or docs file is almost always intentional. Keep it
+    # visible but drop to Low confidence so it never breaks a CI gate — this is
+    # what makes the scanner quiet on real codebases (every repo has tests/).
+    if path and _TEST_CONTEXT.search(path):
+        for f in findings:
+            if f.confidence != "Low":
+                f.confidence = "Low"
+                f.evidence = (f.evidence or []) + ["(test/example/benchmark file — not gated)"]
 
     findings = dedupe(findings)
 
