@@ -17,6 +17,8 @@ Catches the supply-chain & logic-bomb attacks ordinary linters miss — and the 
 
 ![Q-Trace web UI](assets/qtrace-ui.png)
 
+<sub>*The screenshot is the built-in demo: a realistic 7-file "analytics service" scanned in one click. Every file looks normal in isolation, yet Q-Trace surfaces **9 findings (4 Critical, 5 High) across 6 files** — credentials exfiltrated across three modules, a logic bomb buried in a rate-limiter, an obfuscated plugin loader, an import-correlated AWS key, an install hook, and a typosquatted dependency. Not a 2-line toy.*</sub>
+
 ---
 
 ## 🤔 Why Q-Trace?
