@@ -123,7 +123,7 @@ pip install bandit semgrep && python benchmark.py --compare   # head-to-head vs.
 
 The `--compare` run executes **Bandit** and **Semgrep** on the exact same corpus
 (each at its own recommended CI gate) and appends a per-sample coverage matrix to
-`BENCHMARK.md`. Measured result: **Q-Trace 94% recall / 0% FP** vs Semgrep 66% / 3%
+`BENCHMARK.md`. Measured result: **Q-Trace 97% recall / 0% FP** vs Semgrep 66% / 3%
 and Bandit 52% / 6%. Semgrep runs against `tools/semgrep-python-security.yaml`
 (standard offline rules) because its registry is unreachable in air-gapped/CI
 environments — see `tool_comparison.py` for the honest methodology.

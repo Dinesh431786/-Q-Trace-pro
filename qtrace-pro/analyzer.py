@@ -123,6 +123,17 @@ class SinkHit:
     name: str
     line: int
     in_guarded_branch: bool  # inside an if whose test references random/state
+    evasion: bool = False    # anti-analysis primitive (stall sleep / debugger check)
+
+
+# Anti-analysis "sinks" (MITRE T1497). These are not execution sinks, but when a
+# probabilistic/gated branch's *payload* is itself an evasion primitive, that
+# primitive is the dangerous action — so it should elevate confidence the same way
+# a real exec sink does. Only a *stalling* sleep (large constant) qualifies; a
+# short retry sleep does not, keeping precision intact.
+_STALL_SLEEP_SECONDS = 600
+_TRACE_ATTRS = {"gettrace", "settrace"}
+_TRACE_ROOTS = {"sys", "threading"}
 
 
 @dataclass
@@ -227,6 +238,21 @@ class _SinkScanner(ast.NodeVisitor):
         for stmt in node.orelse:
             self.visit(stmt)
 
+    def _evasion_name(self, node: ast.Call):
+        """Return a display name if this call is an anti-analysis primitive."""
+        f = node.func
+        if not isinstance(f, ast.Attribute):
+            return None
+        if f.attr == "sleep" and self._receiver_root(f) == "time":
+            arg = node.args[0] if node.args else None
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, (int, float)) \
+                    and arg.value >= _STALL_SLEEP_SECONDS:
+                return "time.sleep (stalling)"
+            return None
+        if f.attr in _TRACE_ATTRS and self._receiver_root(f) in _TRACE_ROOTS:
+            return f"{self._receiver_root(f)}.{f.attr} (debugger detection)"
+        return None
+
     def visit_Call(self, node: ast.Call) -> None:
         sink = self._sink_name(node)
         if sink is not None:
@@ -235,6 +261,15 @@ class _SinkScanner(ast.NodeVisitor):
                 line=getattr(node, "lineno", 1),
                 in_guarded_branch=self._guard_depth > 0,
             ))
+        else:
+            evasion = self._evasion_name(node)
+            if evasion is not None:
+                self.hits.append(SinkHit(
+                    name=evasion,
+                    line=getattr(node, "lineno", 1),
+                    in_guarded_branch=self._guard_depth > 0,
+                    evasion=True,
+                ))
         self.generic_visit(node)
 
 
@@ -324,18 +359,36 @@ def _confidence_for(pattern: str, sinks: List[SinkHit], symbolic_unsafe: bool) -
     - A dangerous sink somewhere in the file           -> Medium.
     - Pattern fired but no sink at all                  -> Low (likely benign
       sampling / feature-flag; this is the key FP suppressor).
-    Symbolic proof of reachability bumps confidence up one notch.
+
+    Anti-analysis primitives (a stalling sleep or debugger check) are treated as
+    the *payload* of the branch that guards them: a low-probability random check
+    whose only effect is to stall a sandbox is a real evasion bomb even though it
+    calls no exec sink, so a gated evasion primitive elevates confidence exactly
+    like a dangerous sink. Symbolic proof of reachability bumps confidence up one
+    notch.
     """
     base = get_meta(pattern).base_confidence
-    guarded_sink = any(s.in_guarded_branch for s in sinks)
-    any_sink = bool(sinks)
+    danger = [s for s in sinks if not s.evasion]
+    evasion = [s for s in sinks if s.evasion]
+    guarded_sink = any(s.in_guarded_branch for s in danger)
+    any_sink = bool(danger)
+    guarded_evasion = any(s.in_guarded_branch for s in evasion)
+    any_evasion = bool(evasion)
 
     if pattern == "QUANTUM_STEGANOGRAPHY":
         # Stego is about encoding primitives; sink presence elevates it.
         conf = "High" if any_sink else "Medium"
+    elif pattern == "QUANTUM_ANTIDEBUG":
+        # The evasion primitive *is* the finding; gating strengthens it.
+        conf = "High" if guarded_evasion else ("Medium" if any_evasion else "Low")
     elif guarded_sink:
         conf = "High"
     elif any_sink:
+        conf = "Medium"
+    elif guarded_evasion:
+        # e.g. a probabilistic bomb whose payload is a stall/anti-analysis action.
+        conf = "High"
+    elif any_evasion:
         conf = "Medium"
     else:
         conf = "Low"
@@ -431,8 +484,12 @@ def analyze(code: Any, use_symbolic: bool = True, use_cache: bool = True,
             snippet=_snippet_at(code, sink_line), evidence=evidence,
         ))
 
-    # Explicit sink findings (high-confidence, concrete line numbers).
+    # Explicit sink findings (high-confidence, concrete line numbers). Evasion
+    # primitives are not execution sinks, so they never become a DANGEROUS_SINK —
+    # they only inform confidence above (and surface via the ANTIDEBUG finding).
     for s in sinks:
+        if s.evasion:
+            continue
         meta = get_meta("DANGEROUS_SINK")
         findings.append(Finding(
             pattern="DANGEROUS_SINK", meta=meta,

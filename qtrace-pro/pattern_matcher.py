@@ -2,6 +2,29 @@ import ast
 import re
 from typing import List, Dict, Set, Any
 
+# Anti-analysis / evasion primitives (MITRE ATT&CK T1497 — Virtualization/Sandbox
+# Evasion). A *stalling* sleep is only anti-analysis when the delay is long enough
+# to outlast an automated sandbox — an ordinary ``time.sleep(0.1)`` retry is not.
+# Debugger/tracer detection (``sys.gettrace``/``settrace``) is a hard signal that
+# code is checking whether it is being observed. Detecting these precisely fixes
+# two classic false positives (ordinary ``log.debug`` and short retry sleeps) while
+# catching evasion the previous substring heuristic missed entirely.
+_STALL_SLEEP_SECONDS = 600          # >= 10 min constant sleep == sandbox stalling
+_TRACE_DETECT = {"gettrace", "settrace"}
+
+
+def _is_stall_sleep(node: ast.Call) -> bool:
+    """True for ``time.sleep(N)`` with a large constant N (analysis stalling)."""
+    func = node.func
+    attr = func.attr if isinstance(func, ast.Attribute) else \
+        (func.id if isinstance(func, ast.Name) else "")
+    if attr != "sleep" or not node.args:
+        return False
+    arg = node.args[0]
+    return (isinstance(arg, ast.Constant) and isinstance(arg.value, (int, float))
+            and arg.value >= _STALL_SLEEP_SECONDS)
+
+
 class TaintPatternMatcher(ast.NodeVisitor):
     def __init__(self):
         self.taint_map: Dict[str, str] = {}  # var_name -> taint_type
@@ -11,6 +34,7 @@ class TaintPatternMatcher(ast.NodeVisitor):
         self._has_chr = False
         self._has_ord = False
         self._has_xor = False
+        self._if_depth = 0  # >0 while inside an if-branch (for gated-stall detection)
 
     def analyze(self, code: str) -> List[str]:
         # Heuristic: Try AST parse. If fail, use C-token mode.
@@ -69,8 +93,14 @@ class TaintPatternMatcher(ast.NodeVisitor):
         elif call_name == 'xor':
             self._has_xor = True
 
-        # Check for Anti-Debug
-        if call_name == "sleep" or "debug" in call_name:
+        # Anti-analysis / anti-debug (evidence-based, not a substring match):
+        #   * debugger/tracer detection (sys.gettrace / settrace) — a hard signal,
+        #     always flagged;
+        #   * a *conditionally-gated* stalling sleep (large constant inside an
+        #     if-branch) — outlasts sandbox timeouts. An unconditional long sleep
+        #     (a daemon poll loop) is not evasion, so gating keeps precision.
+        # Ordinary logging (`log.debug`) and short retry sleeps no longer trip this.
+        if call_name in _TRACE_DETECT or (self._if_depth > 0 and _is_stall_sleep(node)):
              self.detected_patterns.add("QUANTUM_ANTIDEBUG")
              
         # Check for Cross-Function Bomb
@@ -105,11 +135,14 @@ class TaintPatternMatcher(ast.NodeVisitor):
         cond_str = ast.dump(node.test).lower()
         if "random" in cond_str:
              self.detected_patterns.add("PROBABILISTIC_BOMB")
-             
-        # Check body for Stego/AntiDebug implicitly
-        # (generic_visit handles recursion)
-            
+
+        # Check body for Stego/AntiDebug implicitly (generic_visit handles
+        # recursion). Track if-depth so a stalling sleep is only treated as
+        # anti-analysis when it is *conditionally gated* (not an unconditional
+        # daemon poll loop).
+        self._if_depth += 1
         self.generic_visit(node)
+        self._if_depth -= 1
 
     def visit_AugAssign(self, node):
         # Handle k += 1 etc.
@@ -280,9 +313,11 @@ class TaintPatternMatcher(ast.NodeVisitor):
         if "CHAINED_QUANTUM_BOMB" in self.detected_patterns:
              self.detected_patterns.discard("PROBABILISTIC_BOMB")
              
-        # Cleanup: Anti-Debug often uses random delays; prioritize the specific threat
-        if "QUANTUM_ANTIDEBUG" in self.detected_patterns:
-             self.detected_patterns.discard("PROBABILISTIC_BOMB")
+        # NOTE: a random-gated stalling sleep is *both* a probabilistic logic bomb
+        # and anti-analysis behaviour — two views of the same construct — so we no
+        # longer discard PROBABILISTIC_BOMB when QUANTUM_ANTIDEBUG fires. Keeping
+        # both lets the High-severity bomb gate CI while the confidence engine in
+        # analyzer.py treats the evasion primitive as the bomb's payload.
 
         # Fallback
         if not self.detected_patterns:

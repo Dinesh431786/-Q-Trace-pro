@@ -55,6 +55,43 @@ def test_benign_sampling_is_suppressed_to_low_confidence():
     assert all(f.confidence == "Low" for f in bombs)
 
 
+# --- Anti-analysis / sandbox-evasion (T1497) — precise, evidence-based -------- #
+def test_gated_stall_sleep_is_high_confidence_bomb():
+    # A random-gated multi-hour sleep is a probabilistic sandbox-evasion bomb:
+    # the stall *is* the payload, so it must reach High confidence and gate CI.
+    res = analyze("import random, time\nif random.random() < 0.09:\n    time.sleep(99999)")
+    bombs = [f for f in res.findings if f.pattern == "PROBABILISTIC_BOMB"]
+    assert bombs and bombs[0].confidence == "High" and bombs[0].severity == "High"
+    assert any(f.pattern == "QUANTUM_ANTIDEBUG" for f in res.findings)
+
+
+def test_debugger_detection_flagged_as_antidebug():
+    # sys.gettrace()/settrace() is a hard anti-analysis signal the old substring
+    # heuristic missed entirely.
+    res = analyze("import sys, os\nif sys.gettrace():\n    os._exit(0)")
+    assert any(f.pattern == "QUANTUM_ANTIDEBUG" for f in res.findings)
+
+
+def test_ordinary_logging_debug_not_flagged():
+    # `log.debug(...)` must not be mistaken for anti-debug behaviour (old FP).
+    res = analyze("import logging\nlog = logging.getLogger(__name__)\n"
+                  "def f():\n    log.debug('starting')")
+    assert not any(f.pattern == "QUANTUM_ANTIDEBUG" for f in res.findings)
+
+
+def test_short_retry_sleep_not_flagged():
+    # A brief retry sleep is not sandbox stalling (old FP).
+    res = analyze("import time\nfor i in range(3):\n    time.sleep(0.1)")
+    assert not any(f.pattern == "QUANTUM_ANTIDEBUG" for f in res.findings)
+
+
+def test_unconditional_daemon_sleep_not_flagged():
+    # An unconditional long sleep in a poll loop is a legitimate daemon, not
+    # evasion — gating the stall signal on a conditional branch keeps precision.
+    res = analyze("import time\nwhile True:\n    time.sleep(3600)")
+    assert not any(f.pattern == "QUANTUM_ANTIDEBUG" for f in res.findings)
+
+
 def test_stego_detected():
     res = analyze("def s(m): return ''.join(chr(ord(c)^0x2A) for c in m)\n"
                   "if s(secret)==trigger: unlock_root()")
