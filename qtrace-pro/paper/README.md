@@ -1,29 +1,44 @@
-# Q-Trace Pro — Research Paper
+# Q-Trace Pro — Research Paper (LaTeX)
 
 **Q-Trace Pro: Sink-Aware Two-Axis Confidence for Low-False-Positive Detection
 of Stealth Supply-Chain Threats in Python**
 Dinesh K, H Swetha — Voxelta Private Limited.
 
-`QTracePro_ResearchPaper.pdf` — the compiled preprint (22 pages, 13 figures).
+`QTracePro_ResearchPaper.pdf` — the compiled paper (IEEE manuscript format,
+20 pages, 13 figures, 5 tables, 3 algorithms, 30 references).
 
-Every figure and number in the paper is produced from the tool's own measured
-output; nothing is hand-authored. To reproduce end-to-end:
+Every figure and number is produced from the tool's own measured output; nothing
+is hand-authored. The figures are **vector PDFs typeset in the paper's own Times
+face** (matplotlib pgf/pdflatex backend), not raster screenshots.
+
+## Reproduce
 
 ```bash
-pip install -r ../requirements.txt bandit semgrep matplotlib pymupdf
-python collect_data.py     # runs the corpus + head-to-head -> paper_data.json
-python make_figs.py        # renders every figure -> figs/*.svg
-python build_pdf.py        # inlines figures into paper.html -> the PDF
+# deps: texlive (pdflatex, IEEEtran, booktabs, algorithmicx, listings),
+#       python3 + matplotlib, librsvg2-bin (rsvg-convert), bandit, semgrep
+./build_paper.sh          # measures corpus, renders figures, typesets the PDF
+```
+
+Or step by step:
+
+```bash
+python collect_data.py    # run corpus + head-to-head -> paper_data.json
+python make_figs.py        # render data figures (pgf/Times) -> figs/*.pdf
+rsvg-convert -f pdf -o figs/fig1_arch.pdf     figs/fig1_arch.svg
+rsvg-convert -f pdf -o figs/figA_confflow.pdf figs/figA_confflow.svg
+python emit_tables.py      # appendix tables from measured data
+pdflatex paper.tex && pdflatex paper.tex
 ```
 
 | File | Role |
 |---|---|
-| `paper.html` | the manuscript source (figure placeholders) |
+| `paper.tex` | the manuscript (IEEEtran) |
 | `collect_data.py` | measures Q-Trace/Bandit/Semgrep on the shared corpus |
-| `make_figs.py` | generates all data figures (validated palette) |
-| `build_pdf.py` | inlines figures, renders the PDF via headless Chromium |
-| `paper_data.json` | the measured data snapshot the figures read from |
-| `figs/` | all figures (SVG) |
+| `make_figs.py` | renders the 11 data figures (validated palette, Times) |
+| `emit_tables.py` | generates the appendix tables from measured data |
+| `build_paper.sh` | one-shot reproducible build |
+| `paper_data.json` | measured data snapshot the figures/tables read from |
+| `figs/` | figure sources (vector PDF + the two hand-drawn SVG diagrams) |
 
 The underlying corpus lives in `../benchmark.py`; the head-to-head harness is
 `../tool_comparison.py`. See `../BENCHMARK.md` for the raw reproduced numbers.
