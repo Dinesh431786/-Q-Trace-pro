@@ -1,0 +1,1173 @@
+{
+  "headline": {
+    "n_malicious": 31,
+    "n_benign": 34,
+    "category_recall": 1.0,
+    "category_hits": 31,
+    "ci_recall": 0.967741935483871,
+    "fp_rate": 0.0,
+    "precision": 1.0,
+    "f1": 0.9836065573770492,
+    "tp": 30,
+    "fn": 1,
+    "fp": 0,
+    "tn": 34,
+    "mean_latency_ms": 3.5277293214254053,
+    "median_latency_ms": 1.8281760001173097,
+    "max_latency_ms": 42.47462900002574,
+    "min_latency_ms": 0.9601270000985096
+  },
+  "ablation": {
+    "severity_only": {
+      "fp": 2,
+      "fp_rate": 0.058823529411764705,
+      "recall_hits": 31,
+      "recall": 1.0
+    },
+    "two_axis": {
+      "fp": 0,
+      "fp_rate": 0.0,
+      "recall_hits": 30,
+      "recall": 0.967741935483871
+    }
+  },
+  "confidence_grid": {
+    "High|High": {
+      "mal": 16,
+      "ben": 0
+    },
+    "Critical|High": {
+      "mal": 10,
+      "ben": 0
+    },
+    "High|Medium": {
+      "mal": 4,
+      "ben": 0
+    },
+    "High|Low": {
+      "mal": 1,
+      "ben": 2
+    },
+    "None|None": {
+      "mal": 0,
+      "ben": 32
+    }
+  },
+  "per_sample": [
+    {
+      "name": "probabilistic_bomb",
+      "cls": "malicious",
+      "expected": "PROBABILISTIC_BOMB",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "chained_bomb",
+      "cls": "malicious",
+      "expected": "CHAINED_QUANTUM_BOMB",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "cross_func_bomb",
+      "cls": "malicious",
+      "expected": "CROSS_FUNCTION_QUANTUM_BOMB",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "stego_chr_xor",
+      "cls": "malicious",
+      "expected": "QUANTUM_STEGANOGRAPHY",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "exec_base64",
+      "cls": "malicious",
+      "expected": "OBFUSCATED_PAYLOAD",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "xor_blob_exec",
+      "cls": "malicious",
+      "expected": "OBFUSCATED_PAYLOAD",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "cred_exfil_direct",
+      "cls": "malicious",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "ssh_key_exfil",
+      "cls": "malicious",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "install_hook",
+      "cls": "malicious",
+      "expected": "INSTALL_HOOK",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "env_keying",
+      "cls": "malicious",
+      "expected": "ENVIRONMENT_KEYING",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "ai_evasion",
+      "cls": "malicious",
+      "expected": "AI_SCANNER_EVASION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "sql_injection",
+      "cls": "malicious",
+      "expected": "SQL_INJECTION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "cmd_injection",
+      "cls": "malicious",
+      "expected": "COMMAND_INJECTION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "os_system_fmt",
+      "cls": "malicious",
+      "expected": "COMMAND_INJECTION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "pickle_loads",
+      "cls": "malicious",
+      "expected": "INSECURE_DESERIALIZATION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "yaml_load",
+      "cls": "malicious",
+      "expected": "INSECURE_DESERIALIZATION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "eval_input",
+      "cls": "malicious",
+      "expected": "DANGEROUS_SINK",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "Medium"
+    },
+    {
+      "name": "antidebug_sleep",
+      "cls": "malicious",
+      "expected": "QUANTUM_ANTIDEBUG",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "hardcoded_secret",
+      "cls": "malicious",
+      "expected": "HARDCODED_SECRET",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "Medium"
+    },
+    {
+      "name": "disabled_tls",
+      "cls": "malicious",
+      "expected": "DISABLED_CERT_VALIDATION",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "weak_hash_pw",
+      "cls": "malicious",
+      "expected": "WEAK_HASH",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "ssrf",
+      "cls": "malicious",
+      "expected": "SSRF",
+      "caught": true,
+      "alert": false,
+      "severity": "High",
+      "confidence": "Low"
+    },
+    {
+      "name": "path_traversal",
+      "cls": "malicious",
+      "expected": "PATH_TRAVERSAL",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "Medium"
+    },
+    {
+      "name": "xxe",
+      "cls": "malicious",
+      "expected": "XXE",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "Medium"
+    },
+    {
+      "name": "insecure_random_token",
+      "cls": "malicious",
+      "expected": "INSECURE_RANDOM",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "aws_secret_leak",
+      "cls": "malicious",
+      "expected": "EXPOSED_SECRET",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "private_key_leak",
+      "cls": "malicious",
+      "expected": "EXPOSED_SECRET",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "github_token_leak",
+      "cls": "malicious",
+      "expected": "EXPOSED_SECRET",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "typosquat_req",
+      "cls": "malicious",
+      "expected": "TYPOSQUAT_DEPENDENCY",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "slopsquat_req",
+      "cls": "malicious",
+      "expected": "TYPOSQUAT_DEPENDENCY",
+      "caught": true,
+      "alert": true,
+      "severity": "High",
+      "confidence": "High"
+    },
+    {
+      "name": "cross_file_exfil",
+      "cls": "malicious",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "caught": true,
+      "alert": true,
+      "severity": "Critical",
+      "confidence": "High"
+    },
+    {
+      "name": "flask_run",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "subprocess_list",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "md5_nonsecurity",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "sha256_ok",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "random_sampling",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "random_ab_test",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "High",
+      "confidence": "Low"
+    },
+    {
+      "name": "yaml_safe",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "sql_parameterized",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "verify_true",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "High",
+      "confidence": "Low"
+    },
+    {
+      "name": "requests_const_url",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "chr_formatting",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "encode_decode",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "env_debug_print",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "env_ci_print",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "pickle_dump_only",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "open_config",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "argparse_cli",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "dataclass_code",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "pandas_groupby",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "plain_function",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "legit_requirements",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "legit_pyproject",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "base64_encode_cfg",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "comment_security_word",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "logging_debug",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "tempfile_mkstemp",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "secrets_token",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "ssl_default_ctx",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "class_methods",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "env_to_config",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "random_shuffle",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "ignore_word_comment",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "secret_placeholder",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    },
+    {
+      "name": "secret_from_env",
+      "cls": "benign",
+      "expected": "-",
+      "caught": true,
+      "alert": false,
+      "severity": "None",
+      "confidence": "None"
+    }
+  ],
+  "latency_samples": [
+    0.9601270000985096,
+    0.9825879999425524,
+    1.1180149999745481,
+    1.1461159999726078,
+    1.1508029999731662,
+    1.1557719999473193,
+    1.1971029998676386,
+    1.2070579998635367,
+    1.302645000123448,
+    1.3422750000700034,
+    1.432383999826925,
+    1.4510649998555891,
+    1.4907690001564333,
+    1.8006210000294232,
+    1.8281760001173097,
+    1.8639540001004207,
+    1.9082329999946523,
+    2.0513599999958387,
+    2.13059400016391,
+    2.1915199999966717,
+    2.4680809999608755,
+    2.533018999884007,
+    3.1068250000316766,
+    3.3112389999132574,
+    4.307510999979058,
+    4.8709400000461756,
+    5.992999000000054,
+    42.47462900002574
+  ],
+  "tools": [
+    "Q-Trace",
+    "Bandit",
+    "Semgrep"
+  ],
+  "headtohead": {
+    "Q-Trace": {
+      "recall": 0.967741935483871,
+      "recall_tp": 30,
+      "recall_n": 31,
+      "fp_rate": 0.0,
+      "fp": 0,
+      "fp_n": 34
+    },
+    "Bandit": {
+      "recall": 0.5172413793103449,
+      "recall_tp": 15,
+      "recall_n": 29,
+      "fp_rate": 0.0625,
+      "fp": 2,
+      "fp_n": 32
+    },
+    "Semgrep": {
+      "recall": 0.6551724137931034,
+      "recall_tp": 19,
+      "recall_n": 29,
+      "fp_rate": 0.03125,
+      "fp": 1,
+      "fp_n": 32
+    }
+  },
+  "matrix": [
+    {
+      "name": "probabilistic_bomb",
+      "expected": "PROBABILISTIC_BOMB",
+      "mirror": "logic bombs",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs probabilistic-trigger semantics"
+    },
+    {
+      "name": "chained_bomb",
+      "expected": "CHAINED_QUANTUM_BOMB",
+      "mirror": "staged trigger",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs stateful multi-condition trigger modelling"
+    },
+    {
+      "name": "cross_func_bomb",
+      "expected": "CROSS_FUNCTION_QUANTUM_BOMB",
+      "mirror": "distributed logic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs inter-procedural trigger reconstruction"
+    },
+    {
+      "name": "stego_chr_xor",
+      "expected": "QUANTUM_STEGANOGRAPHY",
+      "mirror": "char-code stego",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": "needs char-code/stego channel modelling"
+    },
+    {
+      "name": "exec_base64",
+      "expected": "OBFUSCATED_PAYLOAD",
+      "mirror": "W4SP/apicolor",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": "partial \u2014 decode\u2192exec sometimes trips a generic exec rule"
+    },
+    {
+      "name": "xor_blob_exec",
+      "expected": "OBFUSCATED_PAYLOAD",
+      "mirror": "telnyx WAV-XOR",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": "partial \u2014 decode\u2192exec sometimes trips a generic exec rule"
+    },
+    {
+      "name": "cred_exfil_direct",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "mirror": "TeamPCP",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": false
+      },
+      "note": "needs data-flow taint (source \u2192 network sink)"
+    },
+    {
+      "name": "ssh_key_exfil",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "mirror": "requests-darwin-lite",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": false
+      },
+      "note": "needs data-flow taint (source \u2192 network sink)"
+    },
+    {
+      "name": "install_hook",
+      "expected": "INSTALL_HOOK",
+      "mirror": "Hades .pth",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs install-time execution semantics"
+    },
+    {
+      "name": "env_keying",
+      "expected": "ENVIRONMENT_KEYING",
+      "mirror": "T1480.001",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs environment-gated-payload semantics"
+    },
+    {
+      "name": "ai_evasion",
+      "expected": "AI_SCANNER_EVASION",
+      "mirror": "Shai-Hulud/Hades",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs prompt-injection / evasion detection"
+    },
+    {
+      "name": "sql_injection",
+      "expected": "SQL_INJECTION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "cmd_injection",
+      "expected": "COMMAND_INJECTION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "os_system_fmt",
+      "expected": "COMMAND_INJECTION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "pickle_loads",
+      "expected": "INSECURE_DESERIALIZATION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "yaml_load",
+      "expected": "INSECURE_DESERIALIZATION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "eval_input",
+      "expected": "DANGEROUS_SINK",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "antidebug_sleep",
+      "expected": "QUANTUM_ANTIDEBUG",
+      "mirror": "anti-analysis",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": ""
+    },
+    {
+      "name": "hardcoded_secret",
+      "expected": "HARDCODED_SECRET",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "disabled_tls",
+      "expected": "DISABLED_CERT_VALIDATION",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "weak_hash_pw",
+      "expected": "WEAK_HASH",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "ssrf",
+      "expected": "SSRF",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": false,
+        "Bandit": true,
+        "Semgrep": false
+      },
+      "note": ""
+    },
+    {
+      "name": "path_traversal",
+      "expected": "PATH_TRAVERSAL",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": ""
+    },
+    {
+      "name": "xxe",
+      "expected": "XXE",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": true
+      },
+      "note": ""
+    },
+    {
+      "name": "insecure_random_token",
+      "expected": "INSECURE_RANDOM",
+      "mirror": "classic",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": ""
+    },
+    {
+      "name": "aws_secret_leak",
+      "expected": "EXPOSED_SECRET",
+      "mirror": "secrets sprawl",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": "needs entropy + import correlation, not literal patterns"
+    },
+    {
+      "name": "private_key_leak",
+      "expected": "EXPOSED_SECRET",
+      "mirror": "secrets sprawl",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": false
+      },
+      "note": "needs entropy + import correlation, not literal patterns"
+    },
+    {
+      "name": "github_token_leak",
+      "expected": "EXPOSED_SECRET",
+      "mirror": "secrets sprawl",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": false,
+        "Semgrep": true
+      },
+      "note": "needs entropy + import correlation, not literal patterns"
+    },
+    {
+      "name": "typosquat_req",
+      "expected": "TYPOSQUAT_DEPENDENCY",
+      "mirror": "typosquat",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": null,
+        "Semgrep": null
+      },
+      "note": "needs a dependency/typosquat model, not code patterns"
+    },
+    {
+      "name": "slopsquat_req",
+      "expected": "TYPOSQUAT_DEPENDENCY",
+      "mirror": "slopsquat",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": null,
+        "Semgrep": null
+      },
+      "note": "needs a dependency/typosquat model, not code patterns"
+    },
+    {
+      "name": "cross_file_exfil",
+      "expected": "CREDENTIAL_EXFILTRATION",
+      "mirror": "W4SP cross-file",
+      "flags": {
+        "Q-Trace": true,
+        "Bandit": true,
+        "Semgrep": false
+      },
+      "note": "needs data-flow taint (source \u2192 network sink)"
+    }
+  ],
+  "category_matrix": {
+    "PROBABILISTIC_BOMB": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "CHAINED_QUANTUM_BOMB": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "CROSS_FUNCTION_QUANTUM_BOMB": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "QUANTUM_STEGANOGRAPHY": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": false
+    },
+    "OBFUSCATED_PAYLOAD": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "CREDENTIAL_EXFILTRATION": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": false
+    },
+    "INSTALL_HOOK": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "ENVIRONMENT_KEYING": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "AI_SCANNER_EVASION": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "SQL_INJECTION": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "COMMAND_INJECTION": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "INSECURE_DESERIALIZATION": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "DANGEROUS_SINK": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "QUANTUM_ANTIDEBUG": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": false
+    },
+    "HARDCODED_SECRET": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "DISABLED_CERT_VALIDATION": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "WEAK_HASH": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "SSRF": {
+      "Q-Trace": false,
+      "Bandit": true,
+      "Semgrep": false
+    },
+    "PATH_TRAVERSAL": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": false
+    },
+    "XXE": {
+      "Q-Trace": true,
+      "Bandit": true,
+      "Semgrep": true
+    },
+    "INSECURE_RANDOM": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": false
+    },
+    "EXPOSED_SECRET": {
+      "Q-Trace": true,
+      "Bandit": false,
+      "Semgrep": true
+    },
+    "TYPOSQUAT_DEPENDENCY": {
+      "Q-Trace": true,
+      "Bandit": null,
+      "Semgrep": null
+    }
+  },
+  "cwe_catalog": {
+    "n_rules": 28,
+    "n_cwe": 18,
+    "by_severity": {
+      "High": 15,
+      "Critical": 5,
+      "Medium": 8
+    }
+  }
+}

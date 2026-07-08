@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="DejaVu Sans, Segoe UI, sans-serif">
+  <rect width="900" height="500" fill="#fcfcfb"/>
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#898781"/>
+    </marker>
+  </defs>
+  <style>
+    .t{fill:#0b0b0b;font-weight:bold;font-size:12.5px;}
+    .s{fill:#52514e;font-size:10.5px;}
+    .lab{fill:#898781;font-size:10px;font-style:italic;}
+    .flow{stroke:#898781;stroke-width:1.4;fill:none;}
+    .dia{fill:#fffaf0;stroke:#eda100;stroke-width:1.2;}
+    .hi{fill:#eafaf3;stroke:#0ca30c;stroke-width:1.4;}
+    .med{fill:#fff6e8;stroke:#fab219;stroke-width:1.4;}
+    .lo{fill:#f2f1ee;stroke:#898781;stroke-width:1.4;}
+  </style>
+
+  <!-- start -->
+  <rect x="24" y="150" width="150" height="56" rx="9" fill="#eef4fd" stroke="#2a78d6" stroke-width="1.2"/>
+  <text class="t" x="99" y="173" text-anchor="middle">Pattern fires</text>
+  <text class="s" x="99" y="190" text-anchor="middle">random-gated branch</text>
+  <line class="flow" x1="174" y1="178" x2="214" y2="178" marker-end="url(#a2)"/>
+
+  <!-- D1 sink? -->
+  <polygon class="dia" points="300,128 392,178 300,228 208,178"/>
+  <text class="t" x="300" y="174" text-anchor="middle">Dangerous</text>
+  <text class="t" x="300" y="190" text-anchor="middle">sink present?</text>
+
+  <!-- D1 yes -> D2 -->
+  <line class="flow" x1="392" y1="178" x2="430" y2="178" marker-end="url(#a2)"/>
+  <text class="lab" x="411" y="170" text-anchor="middle">yes</text>
+
+  <!-- D2 guarded/reachable? -->
+  <polygon class="dia" points="530,116 640,178 530,240 420,178"/>
+  <text class="t" x="530" y="168" text-anchor="middle">Gated branch or</text>
+  <text class="t" x="530" y="184" text-anchor="middle">symbolically</text>
+  <text class="t" x="530" y="200" text-anchor="middle">reachable?</text>
+
+  <!-- D2 yes -> HIGH -->
+  <line class="flow" x1="640" y1="178" x2="700" y2="178" marker-end="url(#a2)"/>
+  <text class="lab" x="670" y="170" text-anchor="middle">yes</text>
+  <rect class="hi" x="702" y="150" width="150" height="56" rx="9"/>
+  <text class="t" x="777" y="174" text-anchor="middle">HIGH</text>
+  <text class="s" x="777" y="191" text-anchor="middle">breaks the CI build</text>
+
+  <!-- D2 no -> MEDIUM (elbow to the right) -->
+  <path class="flow" d="M530,240 L530,278 L638,278" marker-end="url(#a2)"/>
+  <text class="lab" x="547" y="262" text-anchor="middle">no</text>
+  <rect class="med" x="640" y="252" width="182" height="52" rx="9"/>
+  <text class="t" x="731" y="274" text-anchor="middle">MEDIUM</text>
+  <text class="s" x="731" y="291" text-anchor="middle">visible · does not gate</text>
+
+  <!-- D1 no -> D3 evasion -->
+  <line class="flow" x1="300" y1="228" x2="300" y2="300" marker-end="url(#a2)"/>
+  <text class="lab" x="317" y="268" text-anchor="middle">no</text>
+  <polygon class="dia" points="300,300 400,360 300,420 200,360"/>
+  <text class="t" x="300" y="352" text-anchor="middle">Gated evasion</text>
+  <text class="t" x="300" y="368" text-anchor="middle">primitive?</text>
+  <text class="s" x="300" y="384" text-anchor="middle">stall sleep / debugger</text>
+
+  <!-- D3 yes -> HIGH (evasion payload) -->
+  <line class="flow" x1="400" y1="360" x2="450" y2="360" marker-end="url(#a2)"/>
+  <text class="lab" x="425" y="352" text-anchor="middle">yes</text>
+  <rect class="hi" x="452" y="334" width="182" height="52" rx="9"/>
+  <text class="t" x="543" y="356" text-anchor="middle">HIGH</text>
+  <text class="s" x="543" y="373" text-anchor="middle">evasion is the payload (Fig. 12)</text>
+
+  <!-- D3 no -> LOW -->
+  <line class="flow" x1="200" y1="360" x2="150" y2="360" marker-end="url(#a2)"/>
+  <text class="lab" x="175" y="352" text-anchor="middle">no</text>
+  <rect class="lo" x="24" y="334" width="122" height="52" rx="9"/>
+  <text class="t" x="85" y="356" text-anchor="middle">LOW</text>
+  <text class="s" x="85" y="373" text-anchor="middle">FP suppressor</text>
+  <text class="lab" x="85" y="404" text-anchor="middle">benign sampling</text>
+  <text class="lab" x="85" y="418" text-anchor="middle">lands here</text>
+</svg>

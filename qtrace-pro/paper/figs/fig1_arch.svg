@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" font-family="DejaVu Sans, Segoe UI, sans-serif">
+  <rect width="900" height="600" fill="#fcfcfb"/>
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#898781"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#ffffff;stroke:rgba(11,11,11,0.14);stroke-width:1.2;rx:9;}
+    .t{fill:#0b0b0b;font-weight:bold;font-size:13px;}
+    .s{fill:#52514e;font-size:11px;}
+    .cap{fill:#898781;font-size:10.5px;}
+    .flow{stroke:#898781;stroke-width:1.4;fill:none;}
+    .eng{fill:#eef4fd;stroke:#2a78d6;stroke-width:1.1;}
+    .stage{fill:#f4f1fb;stroke:#4a3aa7;stroke-width:1.1;}
+    .out{fill:#eafaf3;stroke:#1baf7a;stroke-width:1.1;}
+  </style>
+
+  <!-- input -->
+  <rect class="box" x="330" y="18" width="240" height="46" rx="9"/>
+  <text class="t" x="450" y="40" text-anchor="middle">Python source / manifest</text>
+  <text class="s" x="450" y="56" text-anchor="middle">file · directory · multi-file package</text>
+  <line class="flow" x1="450" y1="64" x2="450" y2="86" marker-end="url(#ar)"/>
+
+  <!-- validation -->
+  <rect class="box" x="300" y="88" width="300" height="42" rx="9" fill="#fffaf0" stroke="#eda100"/>
+  <text class="t" x="450" y="106" text-anchor="middle">Input validation &amp; sanitisation</text>
+  <text class="s" x="450" y="121" text-anchor="middle">size limits · NUL stripping · type checks</text>
+  <line class="flow" x1="450" y1="130" x2="450" y2="152" marker-end="url(#ar)"/>
+
+  <!-- orchestrator -->
+  <rect class="box" x="270" y="154" width="360" height="46" rx="9"/>
+  <text class="t" x="450" y="176" text-anchor="middle">Orchestrator — analyze()</text>
+  <text class="s" x="450" y="192" text-anchor="middle">content-hash cache · @resilient self-healing · health monitor</text>
+
+  <!-- fan-out lines -->
+  <line class="flow" x1="450" y1="200" x2="450" y2="216" marker-end="url(#ar)"/>
+  <text class="cap" x="450" y="230" text-anchor="middle">detection engines run behind circuit breakers (a failing engine degrades, never crashes)</text>
+
+  <!-- engines grid -->
+  <g>
+    <rect class="box eng" x="30"  y="244" width="196" height="52" rx="9"/>
+    <text class="t" x="128" y="266" text-anchor="middle">Sink-aware AST scan</text>
+    <text class="s" x="128" y="282" text-anchor="middle">receiver-aware sinks · gating</text>
+
+    <rect class="box eng" x="240" y="244" width="196" height="52" rx="9"/>
+    <text class="t" x="338" y="266" text-anchor="middle">Taint pattern matcher</text>
+    <text class="s" x="338" y="282" text-anchor="middle">probabilistic / chained / stego</text>
+
+    <rect class="box eng" x="450" y="244" width="196" height="52" rx="9"/>
+    <text class="t" x="548" y="266" text-anchor="middle">Classic OWASP/CWE</text>
+    <text class="s" x="548" y="282" text-anchor="middle">SQLi · cmd inj · deser · TLS</text>
+
+    <rect class="box eng" x="660" y="244" width="210" height="52" rx="9"/>
+    <text class="t" x="765" y="266" text-anchor="middle">Obfuscation channel</text>
+    <text class="s" x="765" y="282" text-anchor="middle">Shannon entropy + Higuchi FD</text>
+
+    <rect class="box eng" x="30"  y="306" width="196" height="52" rx="9"/>
+    <text class="t" x="128" y="328" text-anchor="middle">Symbolic reachability</text>
+    <text class="s" x="128" y="344" text-anchor="middle">Z3 · sound counter model</text>
+
+    <rect class="box eng" x="240" y="306" width="196" height="52" rx="9"/>
+    <text class="t" x="338" y="328" text-anchor="middle">Secrets scanner</text>
+    <text class="s" x="338" y="344" text-anchor="middle">provider + import correlation</text>
+
+    <rect class="box eng" x="450" y="306" width="196" height="52" rx="9"/>
+    <text class="t" x="548" y="328" text-anchor="middle">Dependency audit</text>
+    <text class="s" x="548" y="344" text-anchor="middle">typosquat · slopsquat</text>
+
+    <rect class="box eng" x="660" y="306" width="210" height="52" rx="9"/>
+    <text class="t" x="765" y="328" text-anchor="middle">Quantum-inspired risk</text>
+    <text class="s" x="765" y="344" text-anchor="middle">state-vector · Von Neumann H</text>
+  </g>
+
+  <!-- converge -->
+  <line class="flow" x1="450" y1="358" x2="450" y2="384" marker-end="url(#ar)"/>
+
+  <!-- scoring -->
+  <rect class="box stage" x="250" y="386" width="400" height="52" rx="9"/>
+  <text class="t" x="450" y="408" text-anchor="middle">Two-axis scoring — severity × confidence</text>
+  <text class="s" x="450" y="424" text-anchor="middle">sink-aware confidence · symbolic bump · CWE + CVSS mapping</text>
+  <line class="flow" x1="450" y1="438" x2="450" y2="460" marker-end="url(#ar)"/>
+
+  <!-- dedup -->
+  <rect class="box stage" x="280" y="462" width="340" height="46" rx="9"/>
+  <text class="t" x="450" y="484" text-anchor="middle">Dedup + context down-grade</text>
+  <text class="s" x="450" y="499" text-anchor="middle">fingerprint dedup · test/example files → Low</text>
+  <line class="flow" x1="450" y1="508" x2="450" y2="530" marker-end="url(#ar)"/>
+
+  <!-- outputs -->
+  <rect class="box out" x="150" y="532" width="180" height="46" rx="9"/>
+  <text class="t" x="240" y="554" text-anchor="middle">SARIF 2.1.0</text>
+  <text class="s" x="240" y="569" text-anchor="middle">CWE taxonomy · fingerprints</text>
+  <rect class="box out" x="360" y="532" width="180" height="46" rx="9"/>
+  <text class="t" x="450" y="554" text-anchor="middle">JSON report</text>
+  <text class="s" x="450" y="569" text-anchor="middle">flat · CI-consumable</text>
+  <rect class="box out" x="570" y="532" width="180" height="46" rx="9"/>
+  <text class="t" x="660" y="554" text-anchor="middle">CLI · Web UI</text>
+  <text class="s" x="660" y="569" text-anchor="middle">exit codes · attack narrative</text>
+</svg>
