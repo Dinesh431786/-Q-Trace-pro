@@ -427,6 +427,40 @@ def test_benchmark_recall_and_false_positive_rate():
     assert fp_rate <= 0.05, f"false-positive rate regressed to {fp_rate}"
 
 
+# --- accuracy upgrades: context-sensitive severity (must trip the CI gate) --- #
+def _gates(code):
+    """True if any finding would break `--fail-on High` (High+ & conf != Low)."""
+    from classic_rules import scan_classic
+    return any(f.severity in ("Critical", "High") and f.confidence != "Low"
+               for f in scan_classic(code))
+
+
+def test_weak_hash_on_password_is_high_and_gates():
+    # md5(password) is insecure credential storage — High, not a Medium note.
+    assert _gates("import hashlib\ndef store(pw): return hashlib.md5(pw.encode()).hexdigest()")
+
+
+def test_weak_hash_non_security_use_stays_low_severity():
+    # A non-password digest should NOT trip the gate (kept Medium).
+    assert not _gates("import hashlib\ndef etag(b): return hashlib.md5(b).hexdigest()")
+
+
+def test_xxe_on_dynamic_input_gates_but_constant_does_not():
+    assert _gates("import xml.etree.ElementTree as ET\ndef p(f): return ET.parse(f)")
+    assert not _gates("import xml.etree.ElementTree as ET\ndef p(): return ET.parse('cfg.xml')")
+
+
+def test_path_traversal_interpolated_gates_constant_does_not():
+    assert _gates("def read(fn): return open(f'/data/{fn}').read()")
+    assert not _gates("def load(): return open('config.json').read()")
+
+
+def test_insecure_random_for_token_gates():
+    assert _gates("import random\ntoken = random.randint(0, 999999)")
+    # random for plain sampling is not security-relevant -> must not gate.
+    assert not _gates("import random\nxs = [random.random() for _ in range(100)]")
+
+
 # --- typosquat / slopsquat dependency audit -------------------------------- #
 def test_typosquat_dependency_detected():
     from dependency_audit import audit_manifest

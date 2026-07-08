@@ -63,6 +63,7 @@ python webapp.py        # web UI on http://127.0.0.1:8000  (stdlib only)
 - **`autofix.py`** — deterministic, no-LLM auto-fix (unified diff for unambiguous issues).
 - **`ledger.py`** — tamper-evident, hash-chained audit ledger (optional HMAC signing).
 - **`classic_rules.py`** — classic OWASP/CWE SAST rules (SQLi, command injection, etc.).
+- **`tool_comparison.py`** — head-to-head harness vs. Bandit & Semgrep on the same corpus (`benchmark.py --compare`).
 - **`obfuscation.py`** — encoded-payload detector (entropy + Higuchi fractal dimension).
 - **`qsim.py`** — lightweight pure-NumPy quantum simulator (RY/H/X/CNOT + sampling).
 - **`quantum_engine.py`** — pattern->circuit mapping, Von Neumann entropy, physics metrics, risk scoring.
@@ -114,10 +115,18 @@ python cli.py fix app.py --write                       # apply deterministic aut
 ## Testing
 
 ```bash
-python test_qtrace.py     # standalone runner (no pytest needed) — 84 tests
+python test_qtrace.py     # standalone runner (no pytest needed) — 89 tests
 pytest test_qtrace.py     # or via pytest
 python benchmark.py       # measured benchmark (recall + false-positive rate) -> BENCHMARK.md
+pip install bandit semgrep && python benchmark.py --compare   # head-to-head vs. Bandit & Semgrep
 ```
+
+The `--compare` run executes **Bandit** and **Semgrep** on the exact same corpus
+(each at its own recommended CI gate) and appends a per-sample coverage matrix to
+`BENCHMARK.md`. Measured result: **Q-Trace 94% recall / 0% FP** vs Semgrep 66% / 3%
+and Bandit 52% / 6%. Semgrep runs against `tools/semgrep-python-security.yaml`
+(standard offline rules) because its registry is unreachable in air-gapped/CI
+environments — see `tool_comparison.py` for the honest methodology.
 
 ---
 

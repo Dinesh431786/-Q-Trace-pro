@@ -23,6 +23,7 @@ Run:  python benchmark.py      (writes BENCHMARK.md)
 """
 from __future__ import annotations
 
+import sys
 import time
 
 from analyzer import analyze
@@ -196,6 +197,28 @@ def main():
         print("\nFalse positives to investigate:")
         for n, pats in fp_names:
             print(f"  {n}: {pats}")
+    # Optional head-to-head vs. Bandit & Semgrep on the *same* corpus.
+    if "--compare" in sys.argv:
+        try:
+            from tool_comparison import compare, render_markdown
+
+            def _qtrace_alert(kind, payload):
+                return is_ci_alert(findings_for(kind, payload))
+
+            print("\nrunning head-to-head vs. Bandit & Semgrep (same corpus)…")
+            cmp = compare(MALICIOUS, BENIGN, _qtrace_alert)
+            section = render_markdown(cmp)
+            with open("BENCHMARK.md", "a", encoding="utf-8") as fh:
+                fh.write("\n" + section)
+            for t in cmp["tools"]:
+                r, f = cmp["recall"][t], cmp["fp"][t]
+                rr = 100 * r["tp"] / r["n"] if r["n"] else 0
+                ff = 100 * f["fp"] / f["n"] if f["n"] else 0
+                print(f"  {t:9s} recall {r['tp']}/{r['n']}={rr:.0f}%  FP {f['fp']}/{f['n']}={ff:.0f}%")
+            print("appended head-to-head comparison to BENCHMARK.md")
+        except Exception as e:
+            print(f"comparison skipped: {e}", file=sys.stderr)
+
     print("\nwrote BENCHMARK.md")
     return cat_recall, fp_rate
 

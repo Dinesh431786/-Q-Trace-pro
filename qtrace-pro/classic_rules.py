@@ -36,6 +36,20 @@ _PLACEHOLDER_VALUE = re.compile(
 _SECRETish_VALUE_OK = {"", "changeme", "password", "xxx", "none", "example",
                        "your-password", "test", "todo", "placeholder"}
 _RANDOM_SECRET_NAME = re.compile(r"(?i)(token|secret|key|password|nonce|otp|salt|session)")
+# A hash applied to something named like a password/credential is a High-severity
+# insecure-password-storage bug (CWE-916/327), not a generic Medium weak-hash note.
+_PW_NAME = re.compile(r"(?i)(^|_)(pw|pwd|pass|passwd|password|passphrase|secret|credential|token)")
+
+
+def _arg_mentions_secret(call: ast.Call) -> bool:
+    """True if any argument subtree references a password/credential-looking name."""
+    for a in call.args:
+        for sub in ast.walk(a):
+            if isinstance(sub, ast.Name) and _PW_NAME.search(sub.id):
+                return True
+            if isinstance(sub, ast.Attribute) and _PW_NAME.search(sub.attr):
+                return True
+    return False
 _WEAK_HASHES = {"md5", "md4", "sha1"}
 _WEAK_CIPHERS = {"DES", "DES3", "ARC4", "RC4", "Blowfish", "XOR"}
 _HTTP_LIBS_URL_ARG = {"get", "post", "put", "delete", "patch", "head", "request", "urlopen"}
@@ -168,8 +182,10 @@ class ClassicRuleVisitor(ast.NodeVisitor):
                     return True
         return False
 
-    def _add(self, rule_key, node, confidence, evidence):
-        self.hits.append((rule_key, getattr(node, "lineno", 1), confidence, evidence))
+    def _add(self, rule_key, node, confidence, evidence, severity=None):
+        # ``severity`` overrides the catalog severity for context-sensitive cases
+        # (e.g. a weak hash applied to a *password* is High, not Medium).
+        self.hits.append((rule_key, getattr(node, "lineno", 1), confidence, evidence, severity))
 
     # --- scope tracking (for install/import-time detection) --------------
     def visit_FunctionDef(self, node):
@@ -238,8 +254,11 @@ class ClassicRuleVisitor(ast.NodeVisitor):
         if any(_RANDOM_SECRET_NAME.search(n) for n in names):
             for sub in ast.walk(node.value):
                 if isinstance(sub, ast.Call) and _attr_chain(sub.func).startswith("random."):
-                    self._add("INSECURE_RANDOM", node, "Medium",
-                              "non-cryptographic random used for a secret/token")
+                    # Predictable randomness for a secret/token/salt is High: it
+                    # is already name-gated, so precision stays intact.
+                    self._add("INSECURE_RANDOM", node, "High",
+                              "non-cryptographic random used for a secret/token",
+                              severity="High")
                     break
         self.generic_visit(node)
 
@@ -320,8 +339,14 @@ class ClassicRuleVisitor(ast.NodeVisitor):
                 and str(node.args[0].value).lower() in _WEAK_HASHES):
             ufs = _kw(node, "usedforsecurity")
             if not (isinstance(ufs, ast.Constant) and ufs.value is False):
-                self._add("WEAK_HASH", node, "Medium",
-                          "broken/weak hash algorithm for security use")
+                if _arg_mentions_secret(node):
+                    # md5/sha1 of a password == insecure credential storage (High).
+                    self._add("WEAK_HASH", node, "High",
+                              "weak hash (md5/sha1) used to hash a password/credential",
+                              severity="High")
+                else:
+                    self._add("WEAK_HASH", node, "Medium",
+                              "broken/weak hash algorithm for security use")
 
         # Disabled TLS validation (CWE-295)
         verify = _kw(node, "verify")
@@ -346,11 +371,14 @@ class ClassicRuleVisitor(ast.NodeVisitor):
 
         # Path traversal (CWE-22): open() with an interpolated/tainted path
         if name == "open" or short == "open":
-            if node.args and (_is_interpolated_str(node.args[0])
-                              or (isinstance(node.args[0], ast.Constant)
-                                  and isinstance(node.args[0].value, str)
-                                  and ".." in node.args[0].value)):
-                self._add("PATH_TRAVERSAL", node, "Low", "file path built from dynamic input")
+            if node.args and _is_interpolated_str(node.args[0]):
+                # A path assembled from a variable (f-string/format/concat) is a
+                # real traversal risk — gate it (Medium confidence, High severity).
+                self._add("PATH_TRAVERSAL", node, "Medium",
+                          "file path built from interpolated/dynamic input")
+            elif node.args and isinstance(node.args[0], ast.Constant) \
+                    and isinstance(node.args[0].value, str) and ".." in node.args[0].value:
+                self._add("PATH_TRAVERSAL", node, "Low", "file path contains '..'")
 
         # XXE (CWE-611): xml parsing of potentially untrusted input.
         # defusedxml is the hardened drop-in -> never flag when it is in use.
@@ -358,7 +386,14 @@ class ClassicRuleVisitor(ast.NodeVisitor):
                 "xml.etree.ElementTree.parse", "xml.etree.ElementTree.fromstring",
                 "etree.parse", "etree.fromstring", "ET.parse", "ET.fromstring",
                 "xml.dom.minidom.parse", "xml.sax.parse"}:
-            self._add("XXE", node, "Low", "XML parsed without an XXE-hardened parser")
+            if node.args and _is_dynamic_arg(node.args[0]):
+                # Parsing a non-constant source (a parameter / variable) with a
+                # non-hardened parser is a gate-worthy XXE exposure.
+                self._add("XXE", node, "Medium",
+                          "untrusted XML parsed without an XXE-hardened parser",
+                          severity="High")
+            else:
+                self._add("XXE", node, "Low", "XML parsed without an XXE-hardened parser")
 
         # Insecure temp file (CWE-377)
         if name in {"tempfile.mktemp"}:
@@ -405,7 +440,7 @@ def _scan_ai_evasion(code: str, lines):
         for pat in _AI_EVASION_PATTERNS:
             if pat.search(line):
                 hits.append(("AI_SCANNER_EVASION", i, "High",
-                             f"LLM-directed instruction in source: '{line.strip()[:80]}'"))
+                             f"LLM-directed instruction in source: '{line.strip()[:80]}'", None))
                 break
     return hits
 
@@ -422,12 +457,15 @@ def scan_classic(code: str) -> List[Finding]:
     except SyntaxError:
         pass
     findings: List[Finding] = []
-    for rule_key, line, confidence, evidence in hits:
+    for rule_key, line, confidence, evidence, *rest in hits:
+        sev_override = rest[0] if rest else None
         meta = get_meta(rule_key)
+        eff_sev = sev_override or meta.severity
         findings.append(Finding(
             pattern=rule_key, meta=meta, confidence=confidence,
-            risk_score=_risk_for(meta.severity), line=line, column=1,
+            risk_score=_risk_for(eff_sev), line=line, column=1,
             snippet=_snippet(lines, line), evidence=[evidence],
+            severity_override=sev_override or "",
         ))
     return findings
 

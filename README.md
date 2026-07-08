@@ -8,8 +8,8 @@ Catches the supply-chain & logic-bomb attacks ordinary linters miss — and the 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-84%2F84%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
-[![Benchmark](https://img.shields.io/badge/benchmark-0%25%20FP%20%C2%B7%20100%25%20recall-success.svg)](qtrace-pro/BENCHMARK.md)
+[![Tests](https://img.shields.io/badge/tests-89%2F89%20passing-brightgreen.svg)](qtrace-pro/test_qtrace.py)
+[![Benchmark](https://img.shields.io/badge/vs%20Bandit%20%26%20Semgrep-94%25%20recall%20%C2%B7%200%25%20FP-success.svg)](qtrace-pro/BENCHMARK.md)
 [![SARIF 2.1.0](https://img.shields.io/badge/output-SARIF%202.1.0%20%C2%B7%20CWE-green.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
 [![No-LLM](https://img.shields.io/badge/engine-deterministic%20%C2%B7%20no--LLM-7c5cff.svg)](#-faq)
 
@@ -151,37 +151,44 @@ See the per-rule severity tables in [`qtrace-pro/README.md`](qtrace-pro/README.m
 
 ---
 
-## 📊 Measured benchmark
+## 📊 Measured benchmark — head-to-head vs. Bandit & Semgrep
 
-Reproducible — run `python benchmark.py` (writes [`BENCHMARK.md`](qtrace-pro/BENCHMARK.md)) over **31 malicious** samples (faithful reconstructions of documented 2024–26 campaigns) and **34 realistic benign hard-negatives** (the code that trips other tools):
+Not a claims table — an **actual run of Bandit and Semgrep on the same corpus**, each at its own recommended CI gate. Reproduce end-to-end:
+
+```bash
+pip install bandit semgrep          # the tools we compare against
+python benchmark.py --compare       # writes BENCHMARK.md with the table below
+```
+
+Corpus: **31 malicious** samples (faithful reconstructions of documented 2024–26 campaigns) + **34 realistic benign hard-negatives** (the code that trips other tools). Gates: Bandit = MEDIUM+ · Semgrep = WARNING+ · Q-Trace = High+ & confidence≠Low.
 
 <div align="center">
 
-| Detection recall | False-positive rate | Precision |
-|:---:|:---:|:---:|
-| **100%** (31/31 category-correct) | **0.0%** (0/34 break the gate) | **100%** · F1 0.89 |
+| Tool | Malware recall | False-positive rate |
+|---|:---:|:---:|
+| **Q-Trace** | **29/31 = 94%** | **0/34 = 0%** |
+| Semgrep (OSS rules) | 19/29 = 66% | 1/32 = 3% |
+| Bandit | 15/29 = 52% | 2/32 = 6% |
+
+<sub>*External tools are scored only on inputs they can process — dependency manifests are excluded from their denominators, since Bandit/Semgrep structurally cannot scan them for typosquatting.*</sub>
 
 </div>
 
-> Context: independent studies put commodity SAST false-positive rates at **45–91%** — and that's the number that decides whether teams keep a scanner switched on. *(0% is on this representative corpus, not a universal guarantee — see [Honest limitations](#-honest-limitations).)*
+**Where the gap comes from.** On classic OWASP/CWE (SQLi, command injection, `pickle`, `yaml.load`, weak hash, `verify=False`) all three tools essentially tie — that's table stakes. Q-Trace pulls ahead on the categories a single-file pattern matcher has **no rule class for**:
 
----
+| Caught only by Q-Trace | Why Bandit/Semgrep can't |
+|---|---|
+| Credential exfiltration (`os.environ` → network) | needs data-flow taint, not a pattern |
+| Cross-file secret → sink | needs inter-module taint |
+| Typosquat / slopsquat deps | needs a dependency model |
+| Probabilistic / chained / cross-function logic bombs | needs trigger semantics |
+| Import-correlated secrets (AWS/GitHub/PEM) | needs entropy + import correlation |
+| Install-hook & environment-keyed payloads | needs install-time / env-gated semantics |
+| Char-code steganography, AI-scanner evasion | needs stego / prompt-injection modelling |
 
-## ⚔️ Q-Trace vs. other tools
+> **A flag isn't the same as the *right* flag.** On the credential-exfil sample Bandit *does* fire — but as *“B113: requests call without a timeout,”* not exfiltration. Firing for the wrong reason is exactly how teams learn to mute a scanner. See [`BENCHMARK.md`](qtrace-pro/BENCHMARK.md) for the full per-sample matrix, including **Q-Trace's own two misses stated plainly** (it keeps bare `requests.get(var)` at Low confidence on purpose — that restraint is why its FP rate is 0% while Bandit's is 6%).
 
-| | Bandit | Semgrep OSS | AI SAST (Snyk/Copilot) | **Q-Trace** |
-|---|:---:|:---:|:---:|:---:|
-| Classic OWASP/CWE rules | ✅ | ✅ | ✅ | ✅ |
-| Logic bombs / obfuscated / install-hooks | ❌ | ⚠️ partial | ⚠️ | ✅ |
-| Cross-file taint | ❌ | 💲 paid | ✅ | ✅ (narrow) |
-| Typosquat / slopsquat deps | ❌ | ❌ | ⚠️ | ✅ |
-| Secrets detection (offline, no cloud) | ❌ | ⚠️ | 💲 cloud | ✅ |
-| Deterministic / reproducible | ✅ | ✅ | ❌ | ✅ |
-| Runs fully offline (no cloud) | ✅ | ✅ | ❌ usually | ✅ |
-| Immune to prompt-injection | ✅ | ✅ | ❌ | ✅ (+detects it) |
-| Auto-fix | ❌ | ⚠️ | ✅ LLM | ✅ deterministic |
-
-Q-Trace **complements** Bandit/Semgrep/CodeQL and dependency-CVE scanners (pip-audit) — it isn't trying to replace your whole pipeline.
+Context: independent studies put commodity SAST false-positive rates at **45–91%** — the number that decides whether a team keeps a scanner switched on. *(0% is on this representative corpus, not a universal guarantee — see [Honest limitations](#-honest-limitations).)*
 
 ---
 
@@ -236,7 +243,7 @@ python cli.py verify-ledger audit.ledger                 # verify the chain (exi
 
 **Will it replace Bandit / CodeQL?** No — it **complements** them. It adds the supply-chain/logic-bomb coverage and the deterministic auto-fix/triage UX they don't have.
 
-**Is it production-ready?** It’s a focused, well-tested tool (77 tests, measured benchmark, SARIF output, CI exit codes). It runs from source today (`python cli.py …`); a `pip install`-able package is on the roadmap.
+**Is it production-ready?** It’s a focused, well-tested tool (89 tests, measured benchmark, SARIF output, CI exit codes). It runs from source today (`python cli.py …`); a `pip install`-able package is on the roadmap.
 
 ---
 
@@ -270,7 +277,7 @@ The complete application lives in **[`qtrace-pro/`](qtrace-pro/)**.
 | `autofix.py` | deterministic unified-diff fixes |
 | `ledger.py` | tamper-evident hash-chained audit log |
 | `cli.py` / `webapp.py` + `web/` | command line · web UI |
-| `benchmark.py` / `test_qtrace.py` | measured benchmark · 77 tests |
+| `benchmark.py` / `test_qtrace.py` | measured benchmark · 89 tests |
 
 </details>
 
