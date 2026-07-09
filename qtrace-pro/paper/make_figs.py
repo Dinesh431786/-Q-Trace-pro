@@ -15,7 +15,8 @@ D=json.load(open(f"{SC}/paper_data.json"))
 
 # validated palette (references/palette.md)
 INK="#0d0d10"; SEC="#33333a"; MUT="#5f5f66"; FRAME="#4a4a50"
-QT="#1f6fd0"; SG="#5a4bbf"; BD="#e06a2a"; AQUA="#178a63"; CRIT="#c62f2f"; GOOD="#0a8a0a"
+# Tol qualitative palette (statistical_visualization_standards.md)
+QT="#0077BB"; SG="#009988"; BD="#EE7733"; AQUA="#0077BB"; CRIT="#CC3311"; GOOD="#009900"
 TOOLCOL={"Q-Trace":QT,"Semgrep":SG,"Bandit":BD}
 HATCH={"Q-Trace":"","Semgrep":"////","Bandit":"...."}
 RAMP=["#e7f0fb","#bcd6f4","#7fb0e8","#3f88d8","#1a56a0"]
